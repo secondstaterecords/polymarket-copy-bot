@@ -1,0 +1,20 @@
+{
+  "name": "polymarket-copy-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "bot": "npx tsx bot.ts",
+    "dashboard": "npx tsx dashboard.ts",
+    "start": "npx tsx bot.ts & npx tsx dashboard.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@types/node": "^25.5.2",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}

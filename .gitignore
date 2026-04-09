@@ -1,0 +1,5 @@
+node_modules
+*.log
+trades.json
+seen-trades.json
+dist
