@@ -391,17 +391,30 @@ const server = createServer((req, res) => {
   }
 });
 
-function getCurrentPrice(slug: string): number {
+// Returns a map of outcome→midpoint for a given slug
+const priceCache = new Map<string, { prices: Map<string, number>; ts: number }>();
+const PRICE_CACHE_TTL = 120_000; // 2 minutes
+
+function getOutcomePrices(slug: string): Map<string, number> {
+  const cached = priceCache.get(slug);
+  if (cached && Date.now() - cached.ts < PRICE_CACHE_TTL) return cached.prices;
+
+  const prices = new Map<string, number>();
   try {
     const raw = bullpen("polymarket price " + slug + " --output json");
     const start = raw.indexOf("{");
     const end = raw.lastIndexOf("}");
-    if (start === -1 || end === -1) return 0;
+    if (start === -1 || end === -1) return prices;
     const data = JSON.parse(raw.substring(start, end + 1));
-    return parseFloat(data.mid || data.last || data.yes || "0");
+    const outcomes = data.outcomes || [];
+    for (const o of outcomes) {
+      prices.set(o.outcome, parseFloat(o.midpoint || o.last_trade || "0"));
+    }
+    priceCache.set(slug, { prices, ts: Date.now() });
   } catch {
-    return 0;
+    // Price fetch failed — return empty, don't cache
   }
+  return prices;
 }
 
 function computeStats(trades: CopyLog[]) {
@@ -417,13 +430,11 @@ function computeStats(trades: CopyLog[]) {
   let paperInvested = 0;
   const paperPositions: Array<{slug: string; outcome: string; entry: number; shares: number; current: number; pnl: number; trader: string}> = [];
 
-  // Cache prices per slug to avoid repeated calls
-  const priceCache = new Map<string, number>();
+  // Fetch prices per slug (cached)
   for (const t of paperBuys) {
-    if (!priceCache.has(t.slug)) {
-      priceCache.set(t.slug, getCurrentPrice(t.slug));
-    }
-    const currentPrice = priceCache.get(t.slug) || 0;
+    const prices = getOutcomePrices(t.slug);
+    const currentPrice = prices.get(t.outcome) || 0;
+    if (currentPrice === 0) continue; // Skip positions where price lookup failed
     const positionPnl = (currentPrice - t.entryPrice) * t.paperShares;
     paperPnl += positionPnl;
     paperInvested += parseFloat(t.ourAmount);
