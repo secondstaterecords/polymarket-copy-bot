@@ -336,14 +336,34 @@ let botRunning = true;
 let cachedStats: ReturnType<typeof computeStats> | null = null;
 
 // Update paper P&L in background every 60s (not on every API request)
+const PAPER_PNL_FILE = join(__dirname, "paper-pnl.json");
+const STATUS_FILE = join(__dirname, "bot-status.json");
+
 function refreshPaperPnl(): void {
   try {
     const trades = loadTrades();
     cachedStats = computeStats(trades);
+    // Write to file so dashboard can read it independently
+    writeFileSync(PAPER_PNL_FILE, JSON.stringify({
+      pnl: cachedStats.paperPnl,
+      returnPct: cachedStats.paperReturn,
+      invested: cachedStats.paperInvested,
+      positions: cachedStats.paperPositions,
+      updatedAt: new Date().toISOString(),
+    }));
     console.log(`  [PAPER] P&L updated: $${cachedStats.paperPnl} (${cachedStats.paperReturn}%)`);
   } catch (err: any) {
     console.error(`  [!] Paper P&L refresh failed: ${err.message}`);
   }
+}
+
+function checkDashboardControl(): void {
+  try {
+    if (existsSync(STATUS_FILE)) {
+      const data = JSON.parse(readFileSync(STATUS_FILE, "utf-8"));
+      botRunning = data.running !== false;
+    }
+  } catch {}
 }
 
 const server = createServer((req, res) => {
@@ -496,7 +516,13 @@ async function controlledPollLoop(): Promise<void> {
 
   let pollCount = 0;
 
+  // Write initial running status
+  writeFileSync(STATUS_FILE, JSON.stringify({ running: true }));
+
   while (true) {
+    // Check if dashboard sent a stop/start signal
+    checkDashboardControl();
+
     if (!botRunning) {
       await new Promise((r) => setTimeout(r, 2000));
       continue;
