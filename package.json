@@ -4,9 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "bot": "npx tsx bot.ts",
-    "dashboard": "npx tsx dashboard.ts",
-    "start": "npx tsx bot.ts & npx tsx dashboard.ts"
+    "bot": "npx tsx src/bot.ts",
+    "dashboard": "npx tsx src/dashboard.ts",
+    "start": "npx tsx src/bot.ts & npx tsx src/dashboard.ts",
+    "test": "vitest run",
+    "legacy:bot": "npx tsx bot.ts",
+    "legacy:dashboard": "npx tsx dashboard.ts"
   },
   "keywords": [],
   "author": "",
