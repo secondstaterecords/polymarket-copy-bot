@@ -35,7 +35,7 @@ describe("shouldCopyTrade", () => {
     expect(r.reason).toContain("price");
   });
   it("rejects small trader amount", () => {
-    const r = shouldCopyTrade({ ...baseSignal, traderAmount: 10 }, DEFAULT_CONFIG, emptyState);
+    const r = shouldCopyTrade({ ...baseSignal, traderAmount: 3 }, DEFAULT_CONFIG, emptyState);
     expect(r.pass).toBe(false);
     expect(r.reason).toContain("amount");
   });

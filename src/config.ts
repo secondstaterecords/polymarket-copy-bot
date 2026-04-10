@@ -58,7 +58,7 @@ export const DEFAULT_CONFIG: BotConfig = {
   filters: {
     minPrice: 0.10,
     maxPrice: 0.85,
-    minTraderAmount: 50,
+    minTraderAmount: 10,
     maxDaysToResolution: 30,
     minHoursToResolution: 2,
     requireMultiWallet: false,

@@ -271,7 +271,7 @@ function pollTraders(): void {
           slug: t.slug || t.market || "",
           outcome: t.outcome || "",
           price: parseFloat(t.price || t.avg_price || "0"),
-          traderAmount: parseFloat(t.amount || t.size || "0"),
+          traderAmount: parseFloat(t.usdc_size || t.amount || "0"),
           timestamp: t.timestamp || t.time || new Date().toISOString(),
         };
 

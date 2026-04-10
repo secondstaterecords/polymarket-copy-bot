@@ -78,7 +78,8 @@ export function getPrice(slug: string): Map<string, number> {
   const prices = new Map<string, number>();
   const result = bullpenExec(`polymarket price ${slug} --output json`);
   if (!result.success || !result.data) return prices;
-  const outcomes = result.data.outcomes || [];
+  // data might be the outcomes array directly, or an object with .outcomes
+  const outcomes = Array.isArray(result.data) ? result.data : (result.data.outcomes || []);
   for (const o of outcomes) {
     prices.set(o.outcome, parseFloat(o.midpoint || o.last_trade || "0"));
   }
