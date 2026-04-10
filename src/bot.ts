@@ -5,6 +5,9 @@ import { loadConfig, BotConfig } from "./config";
 import { shouldCopyTrade, TradeSignal, FilterState } from "./filters";
 import {
   getTraderActivity,
+  getTrackerTrades,
+  followTrader,
+  getFollowing,
   buyMarket,
   sellMarket,
   getPositions,
@@ -252,7 +255,61 @@ function handleSell(signal: TradeSignal): void {
   saveSeenTrades();
 }
 
-// ── Poll cycle ──────────────────────────────────────────────────────
+// ── Setup tracker following ─────────────────────────────────────────
+function setupTrackerFollowing(): void {
+  const following = getFollowing();
+  const followedAddrs = new Set(following.map((f: any) => (f.address || "").toLowerCase()));
+
+  for (const trader of config.traders) {
+    if (!followedAddrs.has(trader.address.toLowerCase())) {
+      log("INIT", `Following ${trader.name} (${trader.address.substring(0, 10)}...)`);
+      followTrader(trader.address, config.filters.minTraderAmount);
+    }
+  }
+}
+
+// ── Poll via tracker trades (unified feed — Sharbel approach) ──────
+function pollViaTracker(): void {
+  if (!running) return;
+
+  try {
+    const trades = getTrackerTrades(50); // Get last 50 trades from all followed
+    const addrToName = new Map(config.traders.map((t) => [t.address.toLowerCase(), t.name]));
+
+    for (const t of trades) {
+      const addr = (t.proxy_wallet || t.address || "").toLowerCase();
+      const traderName = addrToName.get(addr) || t.username || addr.substring(0, 10);
+      const key = tradeKey(addr, t);
+      if (seenTrades.has(key)) continue;
+      seenTrades.add(key);
+
+      const signal: TradeSignal = {
+        traderName,
+        traderAddress: addr,
+        side: (t.side || t.action || "BUY").toUpperCase() as "BUY" | "SELL",
+        slug: t.slug || t.market_slug || "",
+        outcome: t.outcome || "",
+        price: parseFloat(t.price || t.avg_price || "0"),
+        traderAmount: parseFloat(t.usdc_size || t.amount || "0"),
+        timestamp: t.timestamp || t.time || new Date().toISOString(),
+      };
+
+      if (!signal.slug || !signal.outcome) continue;
+
+      log("NEW", `${signal.traderName} ${signal.side} ${signal.slug}:${signal.outcome} @ ${signal.price}`);
+      recentSignals.push(signal);
+      if (recentSignals.length > 200) recentSignals.shift();
+
+      processSignal(signal);
+    }
+  } catch (err: any) {
+    log("FAIL", `Tracker trades error: ${err.message}`);
+  }
+
+  saveSeenTrades();
+}
+
+// ── Poll via individual activity (fallback) ────────────────────────
 function pollTraders(): void {
   if (!running) return;
 
@@ -387,13 +444,24 @@ async function main(): Promise<void> {
     await markExistingTrades();
   }
 
+  // Set up tracker following if enabled
+  if (config.useTracker) {
+    log("INIT", "Setting up tracker following for all traders...");
+    setupTrackerFollowing();
+    log("INIT", "Tracker mode enabled — using unified trade feed");
+  }
+
   startControlServer();
 
   // Main poll loop
   const tick = () => {
     readBotStatus();
     if (running) {
-      pollTraders();
+      if (config.useTracker) {
+        pollViaTracker();
+      } else {
+        pollTraders();
+      }
       pollCount++;
       if (pollCount % 4 === 0) refreshPnl();
     }

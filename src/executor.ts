@@ -86,6 +86,32 @@ export function getPrice(slug: string): Map<string, number> {
   return prices;
 }
 
+// ── Tracker-based detection (Sharbel approach) ─────────────────────
+export function getTrackerTrades(limit = 20, page = 1): any[] {
+  const result = bullpenExec(`tracker trades --output json --limit ${limit} --page ${page}`);
+  return Array.isArray(result.data) ? result.data : [];
+}
+
+export function followTrader(address: string, tradeThreshold = 10): BullpenResult {
+  return bullpenExec(`tracker follow ${address} --notify-trades true --trade-threshold ${tradeThreshold} --output json`);
+}
+
+export function getFollowing(): any[] {
+  const result = bullpenExec("tracker following --output json");
+  return Array.isArray(result.data) ? result.data : [];
+}
+
+// ── Leaderboard ────────────────────────────────────────────────────
+export function getLeaderboard(period = "week", limit = 25): any[] {
+  const result = bullpenExec(`polymarket data leaderboard --period ${period} --limit ${limit} --output json`);
+  return Array.isArray(result.data) ? result.data : [];
+}
+
+export function getTraderProfile(address: string): any | null {
+  const result = bullpenExec(`polymarket data profile ${address} --trades --output json`);
+  return result.data;
+}
+
 export function redeemResolved(): string | null {
   const result = bullpenExec("polymarket redeem --yes --output json");
   if (result.success && result.stdout && !result.stdout.includes("nothing")) return result.stdout;
