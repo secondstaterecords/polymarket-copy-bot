@@ -1,5 +1,11 @@
 node_modules
 *.log
+dist
+archive/
+copybot.db
+bot-status.json
+paper-pnl.json
+seen-trades-v2.json
 trades.json
 seen-trades.json
-dist
+.env
