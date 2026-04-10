@@ -14,7 +14,12 @@
   "type": "commonjs",
   "dependencies": {
     "@types/node": "^25.5.2",
+    "better-sqlite3": "^12.8.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "vitest": "^4.1.4"
   }
 }
