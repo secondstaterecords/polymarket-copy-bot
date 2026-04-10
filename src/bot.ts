@@ -23,6 +23,7 @@ import {
 } from "./db";
 import { computePaperPnl, computeRealPnl, PnlResult } from "./tracker";
 import Database from "better-sqlite3";
+import { telegramEnabled, alertTrade, alertPnl } from "./telegram";
 
 // ── State ───────────────────────────────────────────────────────────
 let config: BotConfig;
@@ -192,6 +193,7 @@ function handleBuy(signal: TradeSignal): void {
     status: "paper",
     isReal: false,
   });
+  alertTrade("BUY", signal.traderName, signal.slug, signal.outcome, signal.price, amount, "paper");
   seenPositions.add(`${signal.traderName}:${signal.slug}:${signal.outcome}`);
   saveSeenTrades();
 }
@@ -361,6 +363,14 @@ function refreshPnl(): void {
     savePaperPnl(paperPnl);
     log("P&L", `Paper: $${paperPnl.pnl} (${paperPnl.returnPct}%) | Real: $${realPnl.pnl} (${realPnl.returnPct}%)`);
 
+    // Send Telegram P&L summary every 12th poll (~6 min)
+    if (pollCount % 12 === 0) {
+      const allTrades = getTrades(db);
+      const paperCount = allTrades.filter((t: any) => t.status === "paper").length;
+      const filteredCount = allTrades.filter((t: any) => t.status === "filtered").length;
+      alertPnl(paperPnl.pnl, paperPnl.returnPct, realPnl.pnl, realPnl.returnPct, paperCount, filteredCount);
+    }
+
     // Try redeeming resolved markets
     const redeemed = redeemResolved();
     if (redeemed) log("P&L", `Redeemed resolved markets: ${redeemed}`);
@@ -434,6 +444,7 @@ async function main(): Promise<void> {
 
   log("INIT", `Polymarket Copy Bot V2 starting (paper=${config.paperMode})`);
   log("INIT", `Tracking ${config.traders.length} traders, poll every ${config.pollIntervalMs / 1000}s`);
+  log("INIT", `Telegram alerts: ${telegramEnabled() ? "enabled" : "disabled (set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)"}`);
 
   loadSeenTrades();
   readBotStatus();
