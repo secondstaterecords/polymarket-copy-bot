@@ -82,7 +82,7 @@ export const DEFAULT_CONFIG: BotConfig = {
     maxBalancePct: 5,
   },
   paperMode: true,
-  useTracker: true,  // Use bullpen tracker trades for unified feed (Sharbel approach)
+  useTracker: false,  // Disabled: tracker trades hangs (auth issue). Using individual polling instead.
 };
 
 export function loadConfig(): BotConfig {
