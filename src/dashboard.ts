@@ -21,7 +21,7 @@ function getDb(): Database.Database | null {
 function apiData(): any {
   const db = getDb();
   let trades: any[] = [];
-  let stats = { executed: 0, paper: 0, filtered: 0, failed: 0, sells: 0 };
+  let stats = { executed: 0, paper: 0, filtered: 0, failed: 0, sells: 0, total: 0 };
 
   if (db) {
     try {
@@ -33,6 +33,7 @@ function apiData(): any {
       stats.filtered = countRow("filtered");
       stats.failed = countRow("failed");
       stats.sells = (db.prepare("SELECT COUNT(*) as c FROM trades WHERE action = 'SELL'").get() as any)?.c || 0;
+      stats.total = (db.prepare("SELECT COUNT(*) as c FROM trades").get() as any)?.c || 0;
     } finally {
       db.close();
     }
@@ -181,7 +182,7 @@ async function refresh(){
     document.getElementById('realReturn').textContent=realReturn.toFixed(2)+'% return';
 
     // Signals & pass rate
-    const total=(d.trades||[]).length;
+    const total=d.stats?.total||(d.trades||[]).length;
     const filtered=d.stats?.filtered||0;
     const passed=total-filtered;
     document.getElementById('signals').textContent=total;

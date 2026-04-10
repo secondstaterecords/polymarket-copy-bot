@@ -351,7 +351,10 @@ function pollTraders(): void {
 // ── P&L refresh ─────────────────────────────────────────────────────
 function refreshPnl(): void {
   try {
-    const allTrades = getTrades(db, { limit: 500 });
+    // Only fetch paper/success trades for P&L — filtered trades have no position data
+    const allTrades = db.prepare(
+      "SELECT * FROM trades WHERE status IN ('paper', 'success') AND action = 'BUY' AND entry_price > 0"
+    ).all() as any[];
     const slugs = new Set(allTrades.map((t: any) => t.slug));
     const prices = new Map<string, Map<string, number>>();
     for (const slug of slugs) {
