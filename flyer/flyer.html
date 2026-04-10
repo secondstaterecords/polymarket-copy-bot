@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polymarket Copy Trading — Flyer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  @page {
+    size: letter;
+    margin: 0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: #09090b;
+    color: #fafafa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .flyer {
+    width: 8.5in;
+    height: 11in;
+    background: linear-gradient(180deg, #09090b 0%, #0c1a0f 40%, #09090b 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.8in 0.7in;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Subtle glow effect */
+  .flyer::before {
+    content: '';
+    position: absolute;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(34, 197, 94, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .top-section {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .tag {
+    display: inline-block;
+    background: rgba(34, 197, 94, 0.12);
+    color: #22c55e;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 100px;
+    margin-bottom: 24px;
+  }
+
+  h1 {
+    font-size: 52px;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    margin-bottom: 16px;
+  }
+
+  h1 span {
+    color: #22c55e;
+  }
+
+  .subtitle {
+    font-size: 18px;
+    color: #a1a1aa;
+    line-height: 1.5;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .middle-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    position: relative;
+    z-index: 1;
+    width: 100%;
+  }
+
+  .benefits {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    width: 100%;
+  }
+
+  .benefit {
+    background: rgba(24, 24, 27, 0.8);
+    border: 1px solid #27272a;
+    border-radius: 16px;
+    padding: 24px 20px;
+    text-align: center;
+  }
+
+  .benefit-icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .benefit h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .benefit p {
+    font-size: 12px;
+    color: #a1a1aa;
+    line-height: 1.4;
+  }
+
+  .qr-section {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    background: rgba(24, 24, 27, 0.8);
+    border: 1px solid #27272a;
+    border-radius: 20px;
+    padding: 28px 36px;
+    width: 100%;
+  }
+
+  .qr-code {
+    flex-shrink: 0;
+  }
+
+  .qr-code img {
+    width: 140px;
+    height: 140px;
+    border-radius: 12px;
+    border: 3px solid #22c55e;
+  }
+
+  .qr-text {
+    flex: 1;
+  }
+
+  .qr-text h2 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+
+  .qr-text h2 span {
+    color: #22c55e;
+  }
+
+  .qr-text p {
+    font-size: 14px;
+    color: #a1a1aa;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+
+  .qr-text .includes {
+    font-size: 12px;
+    color: #71717a;
+  }
+
+  .qr-text .includes strong {
+    color: #a1a1aa;
+  }
+
+  .bottom-section {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 16px;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat .num {
+    font-size: 24px;
+    font-weight: 800;
+    color: #22c55e;
+    letter-spacing: -0.02em;
+  }
+
+  .stat .label {
+    font-size: 11px;
+    color: #71717a;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 2px;
+  }
+
+  .footer-note {
+    font-size: 11px;
+    color: #52525b;
+  }
+
+  /* Print styles */
+  @media print {
+    body {
+      background: #09090b;
+      padding: 0;
+      min-height: auto;
+    }
+    .flyer {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="flyer">
+  <div class="top-section">
+    <div class="tag">Automated Trading</div>
+    <h1>Make Money<br>While You <span>Sleep</span></h1>
+    <p class="subtitle">
+      Our bot copies the best Polymarket traders automatically.
+      Smart filters. Real-time dashboard. Zero effort.
+    </p>
+  </div>
+
+  <div class="middle-section">
+    <div class="benefits">
+      <div class="benefit">
+        <span class="benefit-icon">&#x1F3AF;</span>
+        <h3>Smart Filters</h3>
+        <p>Only copies trades in the profitable 10-85% range with $50+ conviction</p>
+      </div>
+      <div class="benefit">
+        <span class="benefit-icon">&#x1F6E1;</span>
+        <h3>Risk Controls</h3>
+        <p>$25/market cap, $200/day limit, automatic drawdown protection</p>
+      </div>
+      <div class="benefit">
+        <span class="benefit-icon">&#x1F4CA;</span>
+        <h3>Live Dashboard</h3>
+        <p>Track every trade, P&L, and filter decision in real-time</p>
+      </div>
+    </div>
+
+    <div class="qr-section">
+      <div class="qr-code">
+        <!-- UPDATE THIS URL with your actual landing page URL -->
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=https://your-landing-page.netlify.app&bgcolor=09090b&color=22c55e&format=png" alt="Scan to book">
+      </div>
+      <div class="qr-text">
+        <h2>Setup Session: <span>$10</span></h2>
+        <p>
+          Scan the QR code to book a 15-minute call.
+          I'll install the bot, configure your wallet,
+          and set your risk limits.
+        </p>
+        <div class="includes">
+          <strong>Includes:</strong> Full installation, wallet setup, risk configuration, 1 week support.
+          The bot is free & open-source — you pay for setup expertise.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-section">
+    <div class="stats-row">
+      <div class="stat">
+        <div class="num">13%+</div>
+        <div class="label">Test Returns</div>
+      </div>
+      <div class="stat">
+        <div class="num">60%+</div>
+        <div class="label">Trader Win Rate</div>
+      </div>
+      <div class="stat">
+        <div class="num">8,600+</div>
+        <div class="label">Signals Analyzed</div>
+      </div>
+      <div class="stat">
+        <div class="num">30s</div>
+        <div class="label">Poll Interval</div>
+      </div>
+    </div>
+    <p class="footer-note">
+      Prediction markets involve risk. Past performance does not guarantee future results.
+    </p>
+  </div>
+</div>
+
+</body>
+</html>
