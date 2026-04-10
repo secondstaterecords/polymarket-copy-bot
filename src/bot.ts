@@ -358,6 +358,13 @@ function startControlServer(): void {
     res.end("Not found");
   });
 
+  server.on("error", (err: any) => {
+    if (err.code === "EADDRINUSE") {
+      log("INIT", `Port ${config.botPort} in use, skipping control server (dashboard still works)`);
+    } else {
+      throw err;
+    }
+  });
   server.listen(config.botPort, () => {
     log("INIT", `Control server on port ${config.botPort}`);
   });
