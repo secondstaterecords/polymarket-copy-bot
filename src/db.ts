@@ -60,20 +60,39 @@ export function getTrades(db: Database.Database, opts?: {
 
 export function getMarketExposure(db: Database.Database): Map<string, number> {
   const rows = db.prepare(`
-    SELECT slug || ':' || outcome AS key, SUM(our_amount) AS exposure
-    FROM trades WHERE action = 'BUY' AND status IN ('success', 'paper')
+    SELECT slug || ':' || outcome AS key,
+      SUM(CASE WHEN action = 'BUY' THEN our_amount ELSE 0 END) -
+      SUM(CASE WHEN action = 'SELL' THEN our_amount ELSE 0 END) AS exposure
+    FROM trades WHERE status IN ('success', 'paper')
     GROUP BY slug, outcome
   `).all() as any[];
   const map = new Map<string, number>();
-  for (const row of rows) map.set(row.key, row.exposure);
+  for (const row of rows) {
+    if (row.exposure > 0) map.set(row.key, row.exposure);
+  }
   return map;
+}
+
+export function getActiveMarkets(db: Database.Database): Set<string> {
+  // Only include markets where we have buys but NO corresponding sells
+  const rows = db.prepare(`
+    SELECT slug || ':' || outcome AS key
+    FROM trades WHERE status IN ('success', 'paper')
+    GROUP BY slug, outcome
+    HAVING SUM(CASE WHEN action = 'BUY' THEN 1 ELSE 0 END) > SUM(CASE WHEN action = 'SELL' THEN 1 ELSE 0 END)
+  `).all() as any[];
+  return new Set(rows.map(r => r.key));
 }
 
 export function getDailyExposure(db: Database.Database): number {
   const today = new Date().toISOString().split("T")[0];
-  const row = db.prepare(`
+  const buys = db.prepare(`
     SELECT COALESCE(SUM(our_amount), 0) AS total
     FROM trades WHERE action = 'BUY' AND status IN ('success', 'paper') AND timestamp >= ?
   `).get(today + "T00:00:00.000Z") as any;
-  return row?.total || 0;
+  const sells = db.prepare(`
+    SELECT COALESCE(SUM(our_amount), 0) AS total
+    FROM trades WHERE action = 'SELL' AND status IN ('success', 'paper') AND timestamp >= ?
+  `).get(today + "T00:00:00.000Z") as any;
+  return Math.max(0, (buys?.total || 0) - (sells?.total || 0));
 }

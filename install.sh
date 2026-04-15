@@ -1,42 +1,150 @@
-#!/usr/bin/env bash
-# Polymarket Copy Bot — One-line installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/YOUR_REPO/main/install.sh | bash
-set -euo pipefail
+#!/bin/bash
+set -e
 
-echo "=== Polymarket Copy Bot Installer ==="
+# ── Polymarket Copy Bot — Installer ──────────────────────────────────
+CYAN='\033[0;36m'; GREEN='\033[0;32m'; RED='\033[0;31m'; DIM='\033[2m'; BOLD='\033[1m'; NC='\033[0m'
+BOT_DIR="$HOME/polymarket-copy-bot"
+REFERRAL="gilded-vole"
+
+echo ""
+echo -e "${CYAN}${BOLD}  POLYMARKET COPY BOT${NC}"
+echo -e "${DIM}  Automated prediction market trading${NC}"
 echo ""
 
-# Install Bullpen CLI with referral
-if ! command -v bullpen &>/dev/null; then
-  echo "[1/4] Installing Bullpen CLI..."
-  curl -fsSL https://cli.bullpen.fi/install.sh | bash -s -- --referral @gilded-vole
-else
-  echo "[1/4] Bullpen CLI already installed ($(bullpen --version 2>/dev/null || echo 'unknown'))"
+# ── Check prerequisites ──────────────────────────────────────────────
+echo -e "${CYAN}[1/5]${NC} Checking prerequisites..."
+
+if ! command -v node &> /dev/null; then
+    echo -e "${RED}Node.js not found.${NC} Install: https://nodejs.org (v18+)"
+    exit 1
 fi
+echo -e "  ${GREEN}✓${NC} Node.js $(node -v)"
 
-# Clone repo
-INSTALL_DIR="$HOME/polymarket-copy-bot"
-if [ -d "$INSTALL_DIR" ]; then
-  echo "[2/4] Updating existing installation..."
-  cd "$INSTALL_DIR" && git pull
-else
-  echo "[2/4] Cloning repo..."
-  git clone https://github.com/YOUR_REPO/polymarket-copy-bot.git "$INSTALL_DIR"
+if ! command -v git &> /dev/null; then
+    echo -e "${RED}Git not found.${NC}"
+    exit 1
 fi
+echo -e "  ${GREEN}✓${NC} Git"
 
-cd "$INSTALL_DIR"
+# Find or install Bullpen
+BULLPEN_PATH=""
+for p in "$(which bullpen 2>/dev/null)" "$HOME/.local/bin/bullpen" "$HOME/.bullpen/bin/bullpen"; do
+    if [ -f "$p" ]; then BULLPEN_PATH="$p"; break; fi
+done
 
-# Install dependencies
-echo "[3/4] Installing dependencies..."
-npm install
+if [ -z "$BULLPEN_PATH" ]; then
+    echo -e "  ${DIM}Installing Bullpen CLI...${NC}"
+    curl -fsSL https://bullpen.fi/install.sh | bash 2>/dev/null || curl -fsSL https://cli.bullpen.fi/install.sh | bash 2>/dev/null
+    for p in "$HOME/.local/bin/bullpen" "$HOME/.bullpen/bin/bullpen"; do
+        if [ -f "$p" ]; then BULLPEN_PATH="$p"; break; fi
+    done
+    if [ -z "$BULLPEN_PATH" ]; then echo -e "${RED}Bullpen install failed.${NC}"; exit 1; fi
+fi
+echo -e "  ${GREEN}✓${NC} Bullpen CLI"
 
-echo "[4/4] Setup complete!"
+# ── Clone or update ──────────────────────────────────────────────────
+echo -e "${CYAN}[2/5]${NC} Getting bot code..."
+if [ -d "$BOT_DIR" ]; then
+    cd "$BOT_DIR" && git pull --ff-only 2>/dev/null || true
+else
+    git clone https://github.com/secondstaterecords/polymarket-copy-bot.git "$BOT_DIR"
+    cd "$BOT_DIR"
+fi
+npm install --silent 2>/dev/null
+echo -e "  ${GREEN}✓${NC} Ready"
+
+# ── Bullpen login ────────────────────────────────────────────────────
+echo -e "${CYAN}[3/5]${NC} Bullpen login..."
 echo ""
-echo "Next steps:"
-echo "  1. Authenticate:  bullpen login"
-echo "  2. Approve:       bullpen polymarket approve --yes"
-echo "  3. Fund wallet:   Send USDC to your Bullpen wallet"
-echo "  4. Start bot:     cd $INSTALL_DIR && npm run start"
+echo -e "  ${BOLD}If signing up, use referral: ${CYAN}${REFERRAL}${NC}"
 echo ""
-echo "Dashboard: http://localhost:3848"
-echo "The bot starts in PAPER mode by default."
+$BULLPEN_PATH login 2>/dev/null || true
+
+# Approve trading
+echo -e "  ${DIM}Approving trading permissions...${NC}"
+$BULLPEN_PATH polymarket approve --yes 2>/dev/null || true
+
+# Check balance
+BAL=$($BULLPEN_PATH polymarket preflight --output json 2>/dev/null | python3 -c "import sys,json;print(json.load(sys.stdin).get('balance_usd','$0.00'))" 2>/dev/null || echo "unknown")
+echo -e "  ${GREEN}✓${NC} Logged in — Balance: ${GREEN}${BAL}${NC}"
+
+# ── Configure ────────────────────────────────────────────────────────
+echo -e "${CYAN}[4/5]${NC} Configuring..."
+
+# Write bot-status.json for paper mode
+echo '{"running":true,"paperMode":true}' > "$BOT_DIR/bot-status.json"
+echo -e "  ${GREEN}✓${NC} Paper mode enabled (safe — no real money used)"
+
+# ── Auto-start services ──────────────────────────────────────────────
+echo -e "${CYAN}[5/5]${NC} Setting up auto-start..."
+
+NODE_BIN=$(dirname "$(which node)")
+AGENT_DIR="$HOME/Library/LaunchAgents"
+mkdir -p "$AGENT_DIR"
+
+# Bot
+cat > "$AGENT_DIR/com.copybot.bot.plist" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>com.copybot.bot</string>
+    <key>ProgramArguments</key>
+    <array><string>${NODE_BIN}/npx</string><string>tsx</string><string>src/bot.ts</string></array>
+    <key>WorkingDirectory</key><string>${BOT_DIR}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>BULLPEN_PATH</key><string>${BULLPEN_PATH}</string>
+        <key>PATH</key><string>${NODE_BIN}:$(dirname ${BULLPEN_PATH}):/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+    <key>StandardOutPath</key><string>${BOT_DIR}/bot.log</string>
+    <key>StandardErrorPath</key><string>${BOT_DIR}/bot-error.log</string>
+</dict>
+</plist>
+EOF
+
+# Dashboard
+cat > "$AGENT_DIR/com.copybot.dashboard.plist" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>com.copybot.dashboard</string>
+    <key>ProgramArguments</key>
+    <array><string>${NODE_BIN}/npx</string><string>tsx</string><string>src/dashboard.ts</string></array>
+    <key>WorkingDirectory</key><string>${BOT_DIR}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>BULLPEN_PATH</key><string>${BULLPEN_PATH}</string>
+        <key>PATH</key><string>${NODE_BIN}:$(dirname ${BULLPEN_PATH}):/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+    <key>StandardOutPath</key><string>${BOT_DIR}/dashboard.log</string>
+    <key>StandardErrorPath</key><string>${BOT_DIR}/dashboard-error.log</string>
+</dict>
+</plist>
+EOF
+
+launchctl load "$AGENT_DIR/com.copybot.bot.plist" 2>/dev/null
+launchctl load "$AGENT_DIR/com.copybot.dashboard.plist" 2>/dev/null
+
+sleep 3
+echo -e "  ${GREEN}✓${NC} Services started"
+
+echo ""
+echo -e "${GREEN}${BOLD}  ✓ SETUP COMPLETE${NC}"
+echo ""
+echo -e "  ${BOLD}Dashboard:${NC}  ${CYAN}http://localhost:3848${NC}"
+echo -e "  ${BOLD}Status:${NC}     Paper mode (no real money)"
+echo -e "  ${BOLD}Logs:${NC}       ${DIM}~/polymarket-copy-bot/bot.log${NC}"
+echo ""
+echo -e "  ${BOLD}To go live:${NC}"
+echo -e "    1. Deposit USDC at ${CYAN}app.bullpen.fi/wallet${NC}"
+echo -e "    2. Edit ~/polymarket-copy-bot/src/config.ts"
+echo -e "       Change ${RED}paperMode: true${NC} → ${GREEN}paperMode: false${NC}"
+echo -e "    3. Restart: launchctl unload ~/Library/LaunchAgents/com.copybot.bot.plist"
+echo -e "                launchctl load ~/Library/LaunchAgents/com.copybot.bot.plist"
+echo ""
+echo -e "  ${BOLD}To update:${NC}  cd ~/polymarket-copy-bot && git pull && npm install"
+echo ""

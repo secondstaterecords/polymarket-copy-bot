@@ -23,8 +23,7 @@ function computePnlFromTrades(buys: any[], prices: Map<string, Map<string, numbe
   let totalPnl = 0, totalInvested = 0;
   const positions: PnlResult["positions"] = [];
   for (const t of buys) {
-    const currentPrice = prices.get(t.slug)?.get(t.outcome) || 0;
-    if (currentPrice === 0) continue;
+    const currentPrice = prices.get(t.slug)?.get(t.outcome) || 0.001; // No price = assume near-total loss
     const positionPnl = (currentPrice - t.entry_price) * t.paper_shares;
     totalPnl += positionPnl;
     totalInvested += t.our_amount;

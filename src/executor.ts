@@ -1,8 +1,15 @@
 import { execSync } from "child_process";
 import { readFileSync } from "fs";
+import https from "https";
+import http from "http";
 
-const BULLPEN = process.env.BULLPEN_PATH || "bullpen";
+// ── Bullpen CLI (used for real trading only) ──────────────────────
+const BULLPEN = process.env.BULLPEN_PATH || `${process.env.HOME}/.local/bin/bullpen`;
 const CMD_TIMEOUT = 30_000;
+
+// ── Polymarket API (used for data fetching — no Bullpen needed) ──
+const DATA_API = "https://data-api.polymarket.com";
+const GAMMA_API = "https://gamma-api.polymarket.com";
 
 export interface BullpenResult {
   stdout: string;
@@ -10,6 +17,18 @@ export interface BullpenResult {
   success: boolean;
   data: any | null;
   error: string | null;
+}
+
+function httpGet(url: string): any {
+  try {
+    const stdout = execSync(`curl -sS --max-time 15 '${url}'`, {
+      encoding: "utf-8",
+      timeout: 20_000,
+    }).trim();
+    return JSON.parse(stdout);
+  } catch {
+    return null;
+  }
 }
 
 export function parseBullpenOutput(raw: string): any | null {
@@ -54,11 +73,88 @@ export function bullpenExec(args: string): BullpenResult {
   }
 }
 
+// ── Activity polling via Polymarket Data API (no Bullpen needed) ──
 export function getTraderActivity(address: string, limit = 10): any[] {
-  const result = bullpenExec(`polymarket activity --address ${address} --type trade --limit ${limit} --output json`);
-  return Array.isArray(result.data) ? result.data : [];
+  try {
+    const startSec = Math.floor((Date.now() - 24 * 60 * 60 * 1000) / 1000);
+    const url = `${DATA_API}/activity?user=${address}&type=TRADE&limit=${limit}&sortBy=TIMESTAMP&sortDirection=DESC&start=${startSec}`;
+    const data = httpGet(url);
+    if (!Array.isArray(data)) return [];
+    // Normalize field names to match what the bot expects
+    return data.map((t: any) => {
+      // Normalize epoch timestamps to ISO strings
+      let ts = t.timestamp || t.created_at || new Date().toISOString();
+      if (typeof ts === "number" || (typeof ts === "string" && /^\d+(\.\d+)?$/.test(ts))) {
+        const n = Number(ts);
+        ts = n > 1e12 ? new Date(n).toISOString() : new Date(n * 1000).toISOString();
+      }
+      return {
+        proxy_wallet: t.proxy_wallet || t.user || address,
+        timestamp: ts,
+        slug: t.slug || t.market_slug || "",
+        outcome: t.outcome || "",
+        side: t.side || t.action || "BUY",
+        price: t.price || t.avg_price || "0",
+        usdc_size: t.usdc_size || t.size || "0",
+        amount: t.amount || t.usdc_size || t.size || "0",
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
+// ── Price fetching via Gamma API (no Bullpen needed) ──────────────
+export function getPrice(slug: string): Map<string, number> {
+  const prices = new Map<string, number>();
+  try {
+    // Try with closed=true to get resolved markets too
+    let data = httpGet(`${GAMMA_API}/markets?slug=${slug}&closed=true`);
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+      data = httpGet(`${GAMMA_API}/markets?slug=${slug}`);
+    }
+    if (!data) return prices;
+    const markets = Array.isArray(data) ? data : [data];
+    for (const m of markets) {
+      if (m.outcomes && m.outcomePrices) {
+        try {
+          const outcomes = JSON.parse(m.outcomes);
+          const outcomePrices = JSON.parse(m.outcomePrices);
+          for (let i = 0; i < outcomes.length; i++) {
+            prices.set(outcomes[i], parseFloat(outcomePrices[i]) || 0);
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+  return prices;
+}
+
+// ── Balance check (Bullpen CLI) ──────────────────────────────────
+export function getBalance(): number | null {
+  const result = bullpenExec("polymarket preflight --output json");
+  if (!result.success) return null;
+  if (result.data) {
+    const d = result.data;
+    // balance_usd is "$32.82" format
+    if (typeof d.balance_usd === "string") {
+      const n = parseFloat(d.balance_usd.replace(/[^0-9.]/g, ""));
+      if (!isNaN(n)) return n;
+    }
+    // balance is raw USDC units (6 decimals) as string
+    if (d.balance) {
+      const raw = parseFloat(d.balance);
+      if (!isNaN(raw) && raw > 1000) return raw / 1e6; // raw units
+      if (!isNaN(raw)) return raw;
+    }
+  }
+  // Fallback: parse from stdout
+  const match = result.stdout.match(/balance_usd["\s:]*"\$?([\d.]+)"/i);
+  if (match) return parseFloat(match[1]);
+  return null;
+}
+
+// ── Real trading functions (still need Bullpen CLI) ───────────────
 export function getPositions(): any[] {
   const result = bullpenExec("polymarket positions --output json");
   if (!result.success) return [];
@@ -67,26 +163,18 @@ export function getPositions(): any[] {
 }
 
 export function buyMarket(slug: string, outcome: string, amount: number): BullpenResult {
-  return bullpenExec(`polymarket buy ${slug} "${outcome}" ${amount} --yes --output json`);
+  const safeSlug = slug.replace(/'/g, "'\\''");
+  const safeOutcome = outcome.replace(/'/g, "'\\''");
+  return bullpenExec(`polymarket buy '${safeSlug}' '${safeOutcome}' ${amount} --yes --output json`);
 }
 
 export function sellMarket(slug: string, outcome: string, shares: number): BullpenResult {
-  return bullpenExec(`polymarket sell ${slug} "${outcome}" ${shares} --yes --output json`);
+  const safeSlug = slug.replace(/'/g, "'\\''");
+  const safeOutcome = outcome.replace(/'/g, "'\\''");
+  return bullpenExec(`polymarket sell '${safeSlug}' '${safeOutcome}' ${shares} --yes --output json`);
 }
 
-export function getPrice(slug: string): Map<string, number> {
-  const prices = new Map<string, number>();
-  const result = bullpenExec(`polymarket price ${slug} --output json`);
-  if (!result.success || !result.data) return prices;
-  // data might be the outcomes array directly, or an object with .outcomes
-  const outcomes = Array.isArray(result.data) ? result.data : (result.data.outcomes || []);
-  for (const o of outcomes) {
-    prices.set(o.outcome, parseFloat(o.midpoint || o.last_trade || "0"));
-  }
-  return prices;
-}
-
-// ── Tracker-based detection (Sharbel approach) ─────────────────────
+// ── Tracker functions (Bullpen-dependent, not needed for core bot) ─
 export function getTrackerTrades(limit = 20, page = 1): any[] {
   const result = bullpenExec(`tracker trades --output json --limit ${limit} --page ${page}`);
   return Array.isArray(result.data) ? result.data : [];
@@ -101,7 +189,6 @@ export function getFollowing(): any[] {
   return Array.isArray(result.data) ? result.data : [];
 }
 
-// ── Leaderboard ────────────────────────────────────────────────────
 export function getLeaderboard(period = "week", limit = 25): any[] {
   const result = bullpenExec(`polymarket data leaderboard --period ${period} --limit ${limit} --output json`);
   return Array.isArray(result.data) ? result.data : [];

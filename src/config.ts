@@ -13,14 +13,18 @@ export interface FilterConfig {
   requireMultiWallet: boolean;
   multiWalletWindow: number;
   newPositionsOnly: boolean;
+  // Anti-noise filters
+  maxTraderSignalsPerHour: number; // Skip traders sending more than this per hour (0 = disabled)
+  dedupAcrossTraders: boolean;    // Only take one position per market, regardless of trader
 }
 
 export interface RiskConfig {
   tradeAmountUsd: number;
-  maxPerMarket: number;
-  maxDailyExposure: number;
-  maxDrawdownPct: number;
-  maxBalancePct: number;
+  maxPerMarketPct: number;     // % of total capital per market
+  maxDailyExposurePct: number; // % of total capital per day
+  maxDrawdownPct: number;      // % of total capital before circuit breaker
+  fallbackCapital: number;     // Fallback if balance check fails ($)
+  takeProfitPct: number;       // Auto-sell when position return exceeds this % (0 = disabled)
 }
 
 export interface BotConfig {
@@ -59,7 +63,7 @@ export const DEFAULT_TRADERS: TraderConfig[] = [
 
 export const DEFAULT_CONFIG: BotConfig = {
   pollIntervalMs: 30_000,
-  bullpenPath: process.env.BULLPEN_PATH || "bullpen",
+  bullpenPath: process.env.BULLPEN_PATH || `${process.env.HOME}/.local/bin/bullpen`,
   botPort: parseInt(process.env.BOT_PORT || "3847"),
   dashboardPort: parseInt(process.env.DASHBOARD_PORT || "3848"),
   dataDir: process.env.DATA_DIR || ".",
@@ -73,15 +77,18 @@ export const DEFAULT_CONFIG: BotConfig = {
     requireMultiWallet: false,
     multiWalletWindow: 30,
     newPositionsOnly: true,
+    maxTraderSignalsPerHour: 20,  // Traders sending 20+ signals/hr are algorithmic noise
+    dedupAcrossTraders: true,     // Only one position per market across all traders
   },
   risk: {
-    tradeAmountUsd: 5,
-    maxPerMarket: 25,
-    maxDailyExposure: 200,
-    maxDrawdownPct: 20,
-    maxBalancePct: 5,
+    tradeAmountUsd: 5,           // Fixed $5 per trade — small bets, more diversification
+    maxPerMarketPct: 12,         // Max 12% of total capital on one market
+    maxDailyExposurePct: 40,     // V2 gets 40% of total capital (safer bot gets more)
+    maxDrawdownPct: 20,          // Circuit breaker at 20% drawdown from daily high
+    fallbackCapital: 120,        // Fallback if balance check fails (your deposit amount)
+    takeProfitPct: 900,          // Auto-sell when position is up 900%+ (10x the buy-in — safety net only)
   },
-  paperMode: true,
+  paperMode: false,  // LIVE TRADING — real money
   useTracker: false,  // Disabled: tracker trades hangs (auth issue). Using individual polling instead.
 };
 

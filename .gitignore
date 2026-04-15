@@ -1,11 +1,22 @@
 node_modules
-*.log
 dist
 archive/
+*.log
+
+# Data files (user-specific, regenerated at runtime)
 copybot.db
+copybot-*.db
 bot-status.json
 paper-pnl.json
+real-pnl.json
+pnl-history.json
+seen-trades.json
 seen-trades-v2.json
 trades.json
-seen-trades.json
+trader-analytics.json
+
+# Credentials
 .env
+credentials.json
+*.pem
+*.key

@@ -54,6 +54,86 @@ interface CopyLog {
   paperShares: number;
 }
 
+// ── Smart risk controls ─────────────────────────────────────────────
+const MAX_BUYS_PER_MARKET = 3;  // Dedup: max 3 buys per slug:outcome per day
+const DAILY_LOSS_LIMIT = 25;     // Stop new buys if daily spending is down more than $25
+const V1_CAPITAL_SHARE = 0.30;   // V1 gets 30% of capital
+let dailyBuys: Map<string, number> = new Map(); // slug:outcome → buy count today
+let dailySpent = 0;
+let dailyDate = new Date().toISOString().split("T")[0];
+
+function resetDailyIfNeeded(): void {
+  const today = new Date().toISOString().split("T")[0];
+  if (today !== dailyDate) {
+    dailyDate = today;
+    dailySpent = 0;
+    dailyBuys = new Map();
+    console.log("  [RISK] Daily counters reset");
+  }
+}
+
+function canBuyMarket(slug: string, outcome: string): { ok: boolean; reason?: string } {
+  resetDailyIfNeeded();
+  const key = `${slug}:${outcome}`;
+  const count = dailyBuys.get(key) || 0;
+  if (count >= MAX_BUYS_PER_MARKET) {
+    return { ok: false, reason: `dedup: already bought ${key} ${count}x today (max ${MAX_BUYS_PER_MARKET})` };
+  }
+  // Daily loss limit: only block if we've spent a lot AND are losing
+  // Check if positions are down by comparing spent vs current portfolio
+  if (dailySpent > 50) {
+    try {
+      const raw = bullpen("polymarket preflight --output json");
+      const start = raw.indexOf("{"); const end = raw.lastIndexOf("}");
+      if (start >= 0 && end > start) {
+        const d = JSON.parse(raw.substring(start, end + 1));
+        const cash = parseFloat((d.balance_usd || "$0").replace(/[^0-9.]/g, "")) || 0;
+        // If cash is very low and we've spent a lot, we're probably losing
+        if (cash < 5 && dailySpent > DAILY_LOSS_LIMIT) {
+          return { ok: false, reason: `daily loss limit: spent $${dailySpent} today, only $${cash.toFixed(0)} cash left` };
+        }
+      }
+    } catch {}
+  }
+  return { ok: true };
+}
+
+function recordBuy(slug: string, outcome: string): void {
+  const key = `${slug}:${outcome}`;
+  dailyBuys.set(key, (dailyBuys.get(key) || 0) + 1);
+  dailySpent += TRADE_AMOUNT_USD;
+}
+
+// ── Trader analytics (for future moonshot scoring) ──────────────────
+const ANALYTICS_FILE = join(__dirname, "trader-analytics.json");
+
+interface TraderRecord {
+  totalTrades: number;
+  totalSpent: number;
+  moonshots: number;      // trades bought below 20¢
+  avgEntryPrice: number;
+  lastSeen: string;
+}
+
+function recordTraderAnalytics(trader: string, entryPrice: number, amount: number): void {
+  try {
+    let data: Record<string, TraderRecord> = {};
+    if (existsSync(ANALYTICS_FILE)) {
+      data = JSON.parse(readFileSync(ANALYTICS_FILE, "utf-8"));
+    }
+    if (!data[trader]) {
+      data[trader] = { totalTrades: 0, totalSpent: 0, moonshots: 0, avgEntryPrice: 0, lastSeen: "" };
+    }
+    const r = data[trader];
+    r.avgEntryPrice = (r.avgEntryPrice * r.totalTrades + entryPrice) / (r.totalTrades + 1);
+    r.totalTrades++;
+    r.totalSpent += amount;
+    if (entryPrice < 0.20) r.moonshots++;
+    r.lastSeen = new Date().toISOString();
+    writeFileSync(ANALYTICS_FILE, JSON.stringify(data, null, 2));
+  } catch {}
+}
+
 // ── State ───────────────────────────────────────────────────────────
 let seenTrades: Set<string> = new Set();
 let isFirstRun = true;
@@ -179,10 +259,25 @@ function processTraderTrades(
       const entryPrice = parseFloat(trade.price) || 0;
       const paperShares = entryPrice > 0 ? TRADE_AMOUNT_USD / entryPrice : 0;
 
+      // Risk checks: dedup + daily loss limit
+      const riskCheck = canBuyMarket(trade.slug, trade.outcome);
+      if (!riskCheck.ok) {
+        console.log(`  [SKIP] ${riskCheck.reason}`);
+        appendTrade({
+          timestamp: new Date().toISOString(), trader: trader.name, traderAddress: trader.address,
+          action: "BUY", market: trade.market, slug: trade.slug, outcome: trade.outcome,
+          traderAmount: trade.amount, ourAmount: "0", status: "skipped",
+          error: riskCheck.reason, entryPrice, paperShares: 0,
+        });
+        continue;
+      }
+
       // Copy the buy with our fixed amount
       try {
         const result = executeBuy(trade.slug, trade.outcome, TRADE_AMOUNT_USD);
-        console.log(`  [BUY] Copied: $${TRADE_AMOUNT_USD} on ${trade.slug} ${trade.outcome} @ ${entryPrice.toFixed(2)}`);
+        recordBuy(trade.slug, trade.outcome);
+        recordTraderAnalytics(trader.name, entryPrice, TRADE_AMOUNT_USD);
+        console.log(`  [BUY] Copied: $${TRADE_AMOUNT_USD} on ${trade.slug} ${trade.outcome} @ ${entryPrice.toFixed(2)} (market: ${dailyBuys.get(trade.slug+':'+trade.outcome)||0}/${MAX_BUYS_PER_MARKET}, daily: $${dailySpent})`);
         appendTrade({
           timestamp: new Date().toISOString(),
           trader: trader.name,
@@ -287,7 +382,7 @@ function processTraderTrades(
 }
 
 async function pollLoop(): Promise<void> {
-  console.log("🔄 Polymarket Copy Bot starting...");
+  console.log("🔄 Polymarket Copy Bot V1 starting...");
   console.log(`   Tracking ${TRADERS.length} traders`);
   console.log(`   Trade size: $${TRADE_AMOUNT_USD}`);
   console.log(`   Poll interval: ${POLL_INTERVAL_MS / 1000}s`);
@@ -495,7 +590,7 @@ server.listen(CONTROL_PORT, () => {
 
 // Wrap pollLoop to respect pause/resume
 async function controlledPollLoop(): Promise<void> {
-  console.log("🔄 Polymarket Copy Bot starting...");
+  console.log("🔄 Polymarket Copy Bot V1 starting...");
   console.log(`   Tracking ${TRADERS.length} traders`);
   console.log(`   Trade size: $${TRADE_AMOUNT_USD}`);
   console.log(`   Poll interval: ${POLL_INTERVAL_MS / 1000}s`);

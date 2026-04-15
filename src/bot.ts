@@ -12,6 +12,7 @@ import {
   sellMarket,
   getPositions,
   getPrice,
+  getBalance,
   redeemResolved,
 } from "./executor";
 import {
@@ -19,6 +20,7 @@ import {
   insertTrade,
   getMarketExposure,
   getDailyExposure,
+  getActiveMarkets,
   getTrades,
 } from "./db";
 import { computePaperPnl, computeRealPnl, PnlResult } from "./tracker";
@@ -30,6 +32,11 @@ let config: BotConfig;
 let db: Database.Database;
 let running = true;
 let pollCount = 0;
+let circuitBreakerTripped = false;
+let dailyHighWaterMark = 0;
+let lastDrawdownReset = "";
+let totalCapital = 0; // balance + positions value — updated on each P&L refresh
+let usdcBalance = 0;  // available USDC — updated on each P&L refresh
 
 const seenTrades = new Set<string>();
 const seenPositions = new Set<string>();
@@ -74,6 +81,10 @@ function savePaperPnl(pnl: PnlResult): void {
   writeFileSync(dataPath("paper-pnl.json"), JSON.stringify(pnl));
 }
 
+function saveRealPnl(pnl: PnlResult): void {
+  writeFileSync(dataPath("real-pnl.json"), JSON.stringify(pnl));
+}
+
 // ── Logging ─────────────────────────────────────────────────────────
 function log(tag: string, msg: string): void {
   const ts = new Date().toISOString();
@@ -106,12 +117,28 @@ async function markExistingTrades(): Promise<void> {
 
 // ── Process a single trade signal ───────────────────────────────────
 function processSignal(signal: TradeSignal): void {
+  const cap = totalCapital || config.risk.fallbackCapital;
   const filterState: FilterState = {
     marketExposure: getMarketExposure(db),
     dailyExposure: getDailyExposure(db),
     seenPositions,
     recentSignals,
+    activeMarkets: getActiveMarkets(db),
+    maxPerMarket: (config.risk.maxPerMarketPct / 100) * cap,
+    maxDailyExposure: (config.risk.maxDailyExposurePct / 100) * cap,
   };
+
+  // Circuit breaker: block new buys when drawdown exceeds limit
+  if (circuitBreakerTripped && signal.side === "BUY") {
+    log("RISK", `Circuit breaker active — blocking BUY ${signal.slug}:${signal.outcome}`);
+    insertTrade(db, {
+      timestamp: signal.timestamp, trader: signal.traderName, traderAddress: signal.traderAddress,
+      action: signal.side, market: signal.slug, slug: signal.slug, outcome: signal.outcome,
+      traderAmount: signal.traderAmount, ourAmount: 0, entryPrice: signal.price, paperShares: 0,
+      status: "filtered", error: "circuit breaker: drawdown limit exceeded", isReal: false,
+    });
+    return;
+  }
 
   const filterResult = shouldCopyTrade(signal, config, filterState);
 
@@ -168,12 +195,33 @@ function handleBuy(signal: TradeSignal): void {
         result: result.stdout,
         isReal: true,
       });
+      alertTrade("BUY", signal.traderName, signal.slug, signal.outcome, signal.price, amount, "REAL");
+      // Record analytics for trader scoring
+      try {
+        const analyticsPath = join(config.dataDir, "trader-analytics.json");
+        let analytics: Record<string, any> = {};
+        if (existsSync(analyticsPath)) analytics = JSON.parse(readFileSync(analyticsPath, "utf-8"));
+        if (!analytics[signal.traderName]) analytics[signal.traderName] = { totalTrades: 0, totalSpent: 0, moonshots: 0, avgEntryPrice: 0, lastSeen: "" };
+        const r = analytics[signal.traderName];
+        r.avgEntryPrice = (r.avgEntryPrice * r.totalTrades + signal.price) / (r.totalTrades + 1);
+        r.totalTrades++; r.totalSpent += amount;
+        if (signal.price < 0.20) r.moonshots++;
+        r.lastSeen = new Date().toISOString();
+        writeFileSync(analyticsPath, JSON.stringify(analytics, null, 2));
+      } catch {}
       seenPositions.add(`${signal.traderName}:${signal.slug}:${signal.outcome}`);
       saveSeenTrades();
       return;
     }
     log("FAIL", `Real buy failed for ${signal.slug}:${signal.outcome}: ${result.error}`);
-    // Fall through to paper
+    insertTrade(db, {
+      timestamp: new Date().toISOString(),
+      trader: signal.traderName, traderAddress: signal.traderAddress,
+      action: "BUY", market: signal.slug, slug: signal.slug, outcome: signal.outcome,
+      traderAmount: signal.traderAmount, ourAmount: 0, entryPrice: signal.price,
+      paperShares: 0, status: "failed", error: result.error || "real buy failed", isReal: true,
+    });
+    return;
   }
 
   // Paper trade
@@ -206,7 +254,9 @@ function handleSell(signal: TradeSignal): void {
       (p: any) => (p.slug === signal.slug || p.market === signal.slug) && p.outcome === signal.outcome,
     );
     if (match) {
-      const sharesToSell = Math.floor((match.shares || match.size || 0) * 0.5);
+      const totalShares = match.shares || match.size || 0;
+      // Sell all shares — if the trader we're copying sold, we should exit too
+      const sharesToSell = Math.round(totalShares * 100) / 100; // round to 2 decimals, not floor
       if (sharesToSell > 0) {
         const result = sellMarket(signal.slug, signal.outcome, sharesToSell);
         if (result.success) {
@@ -364,7 +414,48 @@ function refreshPnl(): void {
     const paperPnl = computePaperPnl(allTrades, prices);
     const realPnl = computeRealPnl(allTrades, prices);
     savePaperPnl(paperPnl);
-    log("P&L", `Paper: $${paperPnl.pnl} (${paperPnl.returnPct}%) | Real: $${realPnl.pnl} (${realPnl.returnPct}%)`);
+    saveRealPnl(realPnl);
+
+    // ── Update total capital (balance + positions value) ─────────
+    const activePnl = config.paperMode ? paperPnl : realPnl;
+    const positionsValue = activePnl.invested + activePnl.pnl;
+    if (!config.paperMode) {
+      const bal = getBalance();
+      if (bal !== null) {
+        usdcBalance = bal;
+        totalCapital = bal + positionsValue;
+      } else {
+        // Fallback: use configured capital if balance check fails
+        totalCapital = Math.max(config.risk.fallbackCapital, positionsValue);
+      }
+    } else {
+      totalCapital = config.risk.fallbackCapital;
+    }
+    const cap = totalCapital || config.risk.fallbackCapital;
+    const maxDaily = Math.round((config.risk.maxDailyExposurePct / 100) * cap);
+    const maxMkt = Math.round((config.risk.maxPerMarketPct / 100) * cap);
+
+    log("P&L", `Paper: $${paperPnl.pnl} (${paperPnl.returnPct}%) | Real: $${realPnl.pnl} (${realPnl.returnPct}%) | Capital: $${cap.toFixed(0)} (bal $${usdcBalance.toFixed(0)} + pos $${positionsValue.toFixed(0)}) | Limits: daily $${maxDaily}, mkt $${maxMkt}`);
+
+    // ── Drawdown circuit breaker (based on total capital) ────────
+    const today = new Date().toISOString().split("T")[0];
+    if (today !== lastDrawdownReset) {
+      lastDrawdownReset = today;
+      dailyHighWaterMark = activePnl.pnl;
+      circuitBreakerTripped = false;
+    }
+    if (activePnl.pnl > dailyHighWaterMark) dailyHighWaterMark = activePnl.pnl;
+    const drawdownFromHwm = dailyHighWaterMark - activePnl.pnl;
+    const maxDrawdown = (config.risk.maxDrawdownPct / 100) * cap;
+    if (drawdownFromHwm > maxDrawdown && !circuitBreakerTripped) {
+      circuitBreakerTripped = true;
+      log("RISK", `CIRCUIT BREAKER: drawdown $${drawdownFromHwm.toFixed(2)} exceeds max $${maxDrawdown.toFixed(2)} (${config.risk.maxDrawdownPct}% of $${cap.toFixed(0)}) — pausing new buys`);
+      alertTrade("CIRCUIT_BREAKER", "SYSTEM", "drawdown", `$${drawdownFromHwm.toFixed(2)}`, 0, 0, "risk");
+    }
+    if (circuitBreakerTripped && drawdownFromHwm <= maxDrawdown * 0.5) {
+      circuitBreakerTripped = false;
+      log("RISK", `Circuit breaker reset — drawdown recovered to $${drawdownFromHwm.toFixed(2)}`);
+    }
 
     // Send Telegram P&L summary every 12th poll (~6 min)
     if (pollCount % 12 === 0) {
@@ -372,6 +463,40 @@ function refreshPnl(): void {
       const paperCount = allTrades.filter((t: any) => t.status === "paper").length;
       const filteredCount = allTrades.filter((t: any) => t.status === "filtered").length;
       alertPnl(paperPnl.pnl, paperPnl.returnPct, realPnl.pnl, realPnl.returnPct, paperCount, filteredCount);
+    }
+
+    // ── Take-profit: auto-sell positions above threshold ────────
+    if (!config.paperMode && config.risk.takeProfitPct > 0) {
+      for (const pos of realPnl.positions) {
+        if (pos.entry <= 0 || pos.current <= 0) continue;
+        const returnPct = ((pos.current - pos.entry) / pos.entry) * 100;
+        if (returnPct >= config.risk.takeProfitPct) {
+          log("PROFIT", `Take-profit triggered: ${pos.slug}:${pos.outcome} up ${returnPct.toFixed(0)}% (entry ${pos.entry.toFixed(2)} → ${pos.current.toFixed(2)})`);
+          // Check actual position shares on Polymarket
+          const positions = getPositions();
+          const match = positions.find((p: any) => p.slug === pos.slug && p.outcome === pos.outcome);
+          if (match) {
+            const sharesToSell = Math.round((match.shares || match.size || 0) * 100) / 100;
+            if (sharesToSell > 0) {
+              const result = sellMarket(pos.slug, pos.outcome, sharesToSell);
+              if (result.success) {
+                log("PROFIT", `SOLD ${pos.slug}:${pos.outcome} — ${sharesToSell} shares @ ${pos.current.toFixed(2)} (was ${pos.entry.toFixed(2)}, +${returnPct.toFixed(0)}%)`);
+                insertTrade(db, {
+                  timestamp: new Date().toISOString(),
+                  trader: "AUTO-PROFIT", traderAddress: "",
+                  action: "SELL", market: pos.slug, slug: pos.slug, outcome: pos.outcome,
+                  traderAmount: 0, ourAmount: sharesToSell * pos.current,
+                  entryPrice: pos.current, paperShares: sharesToSell,
+                  status: "success", result: result.stdout, isReal: true,
+                });
+                alertTrade("SELL", "TAKE-PROFIT", pos.slug, pos.outcome, pos.current, sharesToSell * pos.current, `+${returnPct.toFixed(0)}%`);
+              } else {
+                log("FAIL", `Take-profit sell failed for ${pos.slug}: ${result.error}`);
+              }
+            }
+          }
+        }
+      }
     }
 
     // Try redeeming resolved markets
@@ -410,7 +535,7 @@ function startControlServer(): void {
 
     if (req.method === "POST" && req.url === "/start") {
       running = true;
-      writeFileSync(dataPath("bot-status.json"), JSON.stringify({ running: true }));
+      writeFileSync(dataPath("bot-status.json"), JSON.stringify({ running: true, paperMode: config.paperMode }));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ running: true }));
       return;
@@ -418,7 +543,7 @@ function startControlServer(): void {
 
     if (req.method === "POST" && req.url === "/stop") {
       running = false;
-      writeFileSync(dataPath("bot-status.json"), JSON.stringify({ running: false }));
+      writeFileSync(dataPath("bot-status.json"), JSON.stringify({ running: false, paperMode: config.paperMode }));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ running: false }));
       return;
@@ -448,6 +573,24 @@ async function main(): Promise<void> {
   log("INIT", `Polymarket Copy Bot V2 starting (paper=${config.paperMode})`);
   log("INIT", `Tracking ${config.traders.length} traders, poll every ${config.pollIntervalMs / 1000}s`);
   log("INIT", `Telegram alerts: ${telegramEnabled() ? "enabled" : "disabled (set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)"}`);
+
+  // Check initial balance
+  if (!config.paperMode) {
+    const bal = getBalance();
+    if (bal !== null) {
+      usdcBalance = bal;
+      totalCapital = bal;
+      log("INIT", `USDC balance: $${bal.toFixed(2)} — limits: daily $${Math.round((config.risk.maxDailyExposurePct / 100) * bal)}, per-market $${Math.round((config.risk.maxPerMarketPct / 100) * bal)}, circuit breaker at $${Math.round((config.risk.maxDrawdownPct / 100) * bal)} drawdown`);
+    } else {
+      totalCapital = config.risk.fallbackCapital;
+      log("INIT", `Balance check failed — using fallback capital $${config.risk.fallbackCapital}`);
+    }
+  } else {
+    totalCapital = config.risk.fallbackCapital;
+  }
+
+  // Write initial status with mode info
+  writeFileSync(dataPath("bot-status.json"), JSON.stringify({ running: true, paperMode: config.paperMode }));
 
   loadSeenTrades();
   readBotStatus();
