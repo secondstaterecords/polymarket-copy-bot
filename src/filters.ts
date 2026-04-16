@@ -52,10 +52,14 @@ export function shouldCopyTrade(signal: TradeSignal, config: BotConfig, state: F
   }
 
   // ── Anti-noise: cross-trader market dedup ────────────────────────
-  // Don't take multiple positions on the same market from different traders
+  // Don't take multiple positions on the same market from different traders.
+  // BUT proven winners (med+ confidence, EV > 0.3) can stack — adding to a
+  // winning sharp's position is usually +EV. Per-market cap still limits size.
   if (filters.dedupAcrossTraders) {
     const marketKey = `${signal.slug}:${signal.outcome}`;
-    if (state.activeMarkets.has(marketKey))
+    const evForDedup = state.traderEv?.get(signal.traderName);
+    const canStack = evForDedup && evForDedup.confidence !== "low" && evForDedup.expectedValue > 0.3;
+    if (state.activeMarkets.has(marketKey) && !canStack)
       return { pass: false, reason: `dedup: already hold position on ${signal.slug}:${signal.outcome}` };
   }
 
