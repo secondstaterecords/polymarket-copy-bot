@@ -12,6 +12,7 @@ export interface TraderStats {
   losses: number;
   winRate: number;          // 0 to 1
   avgReturnPct: number;     // average return per resolved trade (%)
+  avgClvPct: number;        // closing line value — gold-standard edge metric
   expectedValue: number;    // EV per $1 bet
   bestCategory: string | null;
   bestCategoryWr: number | null;
@@ -62,6 +63,19 @@ export function computeTraderStats(db: Database.Database, trader: string): Trade
   const avgWinPayout = winCount > 0 ? winPayouts / winCount : 0;
   const expectedValue = winRate * avgWinPayout - (1 - winRate);
 
+  // Closing Line Value (CLV) — average edge at entry vs final price.
+  // Positive CLV = we consistently got better prices than the close = we're +EV
+  // This is the gold-standard metric used by pro sports bettors.
+  let totalClv = 0, clvCount = 0;
+  for (const r of resolved) {
+    if (r.entry_price > 0 && r.resolved_price !== null && r.resolved_price !== undefined) {
+      // CLV = (final - entry) / entry. We want this positive on average.
+      totalClv += (r.resolved_price - r.entry_price) / r.entry_price;
+      clvCount++;
+    }
+  }
+  const avgClvPct = clvCount > 0 ? (totalClv / clvCount) * 100 : 0;
+
   // Best category
   const catStats: Record<string, { wins: number; total: number }> = {};
   for (const r of resolved) {
@@ -108,6 +122,7 @@ export function computeTraderStats(db: Database.Database, trader: string): Trade
     losses,
     winRate,
     avgReturnPct,
+    avgClvPct,
     expectedValue,
     bestCategory,
     bestCategoryWr,
@@ -122,15 +137,15 @@ export function recomputeAllTraderStats(db: Database.Database): TraderStats[] {
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO trader_stats
     (trader, total_trades, resolved_trades, wins, losses, win_rate, avg_return_pct,
-     expected_value, best_category, best_category_wr, size_multiplier, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     avg_clv_pct, expected_value, best_category, best_category_wr, size_multiplier, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const now = new Date().toISOString();
   const results: TraderStats[] = [];
   for (const { trader } of traders) {
     const s = computeTraderStats(db, trader);
     stmt.run(s.trader, s.totalTrades, s.resolvedTrades, s.wins, s.losses,
-      s.winRate, s.avgReturnPct, s.expectedValue, s.bestCategory, s.bestCategoryWr,
+      s.winRate, s.avgReturnPct, s.avgClvPct, s.expectedValue, s.bestCategory, s.bestCategoryWr,
       s.sizeMultiplier, now);
     results.push(s);
   }

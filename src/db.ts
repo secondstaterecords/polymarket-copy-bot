@@ -49,6 +49,7 @@ export function createDb(dataDir: string): Database.Database {
       losses INTEGER NOT NULL DEFAULT 0,
       win_rate REAL NOT NULL DEFAULT 0,
       avg_return_pct REAL NOT NULL DEFAULT 0,
+      avg_clv_pct REAL NOT NULL DEFAULT 0,
       expected_value REAL NOT NULL DEFAULT 0,
       best_category TEXT,
       best_category_wr REAL,
@@ -56,6 +57,8 @@ export function createDb(dataDir: string): Database.Database {
       updated_at TEXT NOT NULL
     );
   `);
+  // Migrations for existing DBs
+  try { db.exec("ALTER TABLE trader_stats ADD COLUMN avg_clv_pct REAL NOT NULL DEFAULT 0"); } catch {}
   return db;
 }
 

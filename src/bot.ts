@@ -131,6 +131,19 @@ async function markExistingTrades(): Promise<void> {
 // ── Process a single trade signal ───────────────────────────────────
 function processSignal(signal: TradeSignal): void {
   const cap = totalCapital || config.risk.fallbackCapital;
+  // Build trader EV map so filter can exempt proven winners from noise throttle
+  const traderEv = new Map<string, { expectedValue: number; confidence: "low" | "medium" | "high" }>();
+  try {
+    const statsRows = db.prepare(`SELECT trader, expected_value, resolved_trades FROM trader_stats`).all() as any[];
+    for (const row of statsRows) {
+      let conf: "low" | "medium" | "high";
+      if (row.resolved_trades < 10) conf = "low";
+      else if (row.resolved_trades < 30) conf = "medium";
+      else conf = "high";
+      traderEv.set(row.trader, { expectedValue: row.expected_value, confidence: conf });
+    }
+  } catch {}
+
   const filterState: FilterState = {
     marketExposure: getMarketExposure(db),
     dailyExposure: getDailyExposure(db),
@@ -139,6 +152,7 @@ function processSignal(signal: TradeSignal): void {
     activeMarkets: getActiveMarkets(db),
     maxPerMarket: (config.risk.maxPerMarketPct / 100) * cap,
     maxDailyExposure: (config.risk.maxDailyExposurePct / 100) * cap,
+    traderEv,
   };
 
   // Circuit breaker: block new buys when drawdown exceeds limit
@@ -603,13 +617,15 @@ function refreshPnl(): void {
       }
     }
 
-    // ── Big loss alerts — position down >50% ─────────────────────
+    // ── Big loss alerts — position down >70% AND on bigger bets (>=$10) ──
+    // Research shows panic-selling on drops is "disposition bias" — don't stress
+    // on small positions. Only alert if it's meaningful.
     if (!config.paperMode) {
       for (const pos of realPnl.positions) {
         const key = `${pos.slug}:${pos.outcome}`;
         if (pos.entry > 0 && pos.current > 0 && !alertedBigLosses.has(key)) {
           const lossPct = ((pos.current - pos.entry) / pos.entry) * 100;
-          if (lossPct < -50 && pos.invested >= 5) {
+          if (lossPct < -70 && pos.invested >= 10) {
             alertBigLoss(pos.market || pos.slug, pos.outcome, pos.entry, pos.current, pos.pnl);
             alertedBigLosses.add(key);
           }

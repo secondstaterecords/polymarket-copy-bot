@@ -20,6 +20,8 @@ export interface FilterState {
   // Dynamic limits computed from total capital
   maxPerMarket: number;
   maxDailyExposure: number;
+  // Per-trader EV info for smart-filter bypasses (optional)
+  traderEv?: Map<string, { expectedValue: number; confidence: "low" | "medium" | "high" }>;
 }
 
 export interface FilterResult {
@@ -33,15 +35,20 @@ export function shouldCopyTrade(signal: TradeSignal, config: BotConfig, state: F
   const { filters, risk } = config;
 
   // ── Anti-noise: trader velocity filter ───────────────────────────
-  // If a trader is sending too many signals per hour, they're algorithmic noise
+  // Block noisy traders — BUT exempt proven winners (high confidence + positive EV)
+  // so we don't filter out 96% of signals from our best traders.
   if (filters.maxTraderSignalsPerHour > 0) {
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
     const recentFromTrader = state.recentSignals.filter(
       s => s.traderAddress === signal.traderAddress &&
            new Date(s.timestamp).getTime() > oneHourAgo
     ).length;
-    if (recentFromTrader >= filters.maxTraderSignalsPerHour)
-      return { pass: false, reason: `noise: ${signal.traderName} sent ${recentFromTrader} signals/hr (max ${filters.maxTraderSignalsPerHour})` };
+    // Check if this trader is a proven winner — raise their limit to 3x
+    const ev = state.traderEv?.get(signal.traderName);
+    const isProvenWinner = ev && ev.confidence !== "low" && ev.expectedValue > 0.1;
+    const limit = isProvenWinner ? filters.maxTraderSignalsPerHour * 3 : filters.maxTraderSignalsPerHour;
+    if (recentFromTrader >= limit)
+      return { pass: false, reason: `noise: ${signal.traderName} sent ${recentFromTrader} signals/hr (max ${limit}${isProvenWinner ? " boosted" : ""})` };
   }
 
   // ── Anti-noise: cross-trader market dedup ────────────────────────

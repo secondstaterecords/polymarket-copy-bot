@@ -91,12 +91,12 @@ export const DEFAULT_CONFIG: BotConfig = {
     dedupAcrossTraders: true,     // Only one position per market across all traders
   },
   risk: {
-    tradeAmountUsd: 5,           // Fixed $5 per trade — small bets, more diversification
-    maxPerMarketPct: 12,         // Max 12% of total capital on one market
-    maxDailyExposurePct: 40,     // V2 gets 40% of total capital (safer bot gets more)
+    tradeAmountUsd: 5,           // Base trade size — adaptive sizing multiplies by 0.5-2x based on trader EV
+    maxPerMarketPct: 5,          // Max 5% of capital per market (pro bettor standard, was 12%)
+    maxDailyExposurePct: 40,     // Max 40% of capital deployed per day
     maxDrawdownPct: 20,          // Circuit breaker at 20% drawdown from daily high
-    fallbackCapital: 120,        // Fallback if balance check fails (your deposit amount)
-    takeProfitPct: 900,          // Auto-sell when position is up 900%+ (10x the buy-in — safety net only)
+    fallbackCapital: 120,        // Fallback if balance check fails ($)
+    takeProfitPct: 900,          // Auto-sell when position is up 900%+ (safety net for moonshots)
   },
   paperMode: false,  // LIVE TRADING — real money
   useTracker: false,  // Disabled: tracker trades hangs (auth issue). Using individual polling instead.
