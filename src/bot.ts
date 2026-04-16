@@ -25,7 +25,7 @@ import {
 } from "./db";
 import { computePaperPnl, computeRealPnl, PnlResult } from "./tracker";
 import Database from "better-sqlite3";
-import { telegramEnabled, alertTrade, alertPnl } from "./telegram";
+import { telegramEnabled, alertTrade, alertPnl, alertDailyGames } from "./telegram";
 
 // ── State ───────────────────────────────────────────────────────────
 let config: BotConfig;
@@ -457,12 +457,30 @@ function refreshPnl(): void {
       log("RISK", `Circuit breaker reset — drawdown recovered to $${drawdownFromHwm.toFixed(2)}`);
     }
 
-    // Send Telegram P&L summary every 12th poll (~6 min)
-    if (pollCount % 12 === 0) {
-      const allTrades = getTrades(db);
-      const paperCount = allTrades.filter((t: any) => t.status === "paper").length;
-      const filteredCount = allTrades.filter((t: any) => t.status === "filtered").length;
-      alertPnl(paperPnl.pnl, paperPnl.returnPct, realPnl.pnl, realPnl.returnPct, paperCount, filteredCount);
+    // Send Telegram P&L summary every 60th poll (~30 min)
+    if (pollCount % 60 === 0) {
+      const executedCount = (db.prepare("SELECT COUNT(*) as c FROM trades WHERE is_real = 1 AND status = 'success'").get() as any)?.c || 0;
+      alertPnl(paperPnl.pnl, paperPnl.returnPct, realPnl.pnl, realPnl.returnPct, executedCount, usdcBalance, totalCapital);
+    }
+
+    // Send daily games digest once per day (on first poll after 10 AM local)
+    const hour = new Date().getHours();
+    if (pollCount % 120 === 0 && hour >= 10 && hour < 12) {
+      try {
+        const { execSync } = require("child_process");
+        const BULLPEN = process.env.BULLPEN_PATH || `${process.env.HOME}/.local/bin/bullpen`;
+        const posRaw = execSync(`${BULLPEN} polymarket positions --output json 2>/dev/null`, { encoding: "utf-8", timeout: 15000 }).trim();
+        const posStart = posRaw.indexOf("{"); const posEnd = posRaw.lastIndexOf("}");
+        if (posStart >= 0) {
+          const posData = JSON.parse(posRaw.substring(posStart, posEnd + 1));
+          const positions = (posData.positions || []).map((p: any) => ({
+            slug: p.slug || "", outcome: p.outcome || "", market: p.market || "",
+            entry: parseFloat(p.avg_price || "0"), current: parseFloat(p.current_price || "0"),
+            pnl: parseFloat(p.unrealized_pnl || "0"), endDate: p.end_date || "",
+          }));
+          alertDailyGames(positions);
+        }
+      } catch {}
     }
 
     // ── Take-profit: auto-sell positions above threshold ────────

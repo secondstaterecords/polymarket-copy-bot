@@ -55,12 +55,16 @@ interface CopyLog {
 }
 
 // ── Smart risk controls ─────────────────────────────────────────────
-const MAX_BUYS_PER_MARKET = 3;  // Dedup: max 3 buys per slug:outcome per day
-const DAILY_LOSS_LIMIT = 25;     // Stop new buys if daily spending is down more than $25
-const V1_CAPITAL_SHARE = 0.30;   // V1 gets 30% of capital
-let dailyBuys: Map<string, number> = new Map(); // slug:outcome → buy count today
+const MAX_BUYS_PER_MARKET = 3;   // Max 3 buys per slug:outcome per day
+const MAX_PER_EVENT = 2;          // Max 2 SIDES per event (don't bet both sides 3x each)
+const MAX_DAILY_LOSS = 30;        // Pause if daily unrealized P&L drops below -$30
+const LOSS_CHECK_INTERVAL = 10;   // Check P&L every 10 trades
+let dailyBuys: Map<string, number> = new Map();  // slug:outcome → count
+let dailyEvents: Map<string, Set<string>> = new Map(); // event slug → set of outcomes
 let dailySpent = 0;
 let dailyDate = new Date().toISOString().split("T")[0];
+let dailyPaused = false;
+let tradesSinceCheck = 0;
 
 function resetDailyIfNeeded(): void {
   const today = new Date().toISOString().split("T")[0];
@@ -68,40 +72,63 @@ function resetDailyIfNeeded(): void {
     dailyDate = today;
     dailySpent = 0;
     dailyBuys = new Map();
+    dailyEvents = new Map();
+    dailyPaused = false;
+    tradesSinceCheck = 0;
     console.log("  [RISK] Daily counters reset");
   }
 }
 
 function canBuyMarket(slug: string, outcome: string): { ok: boolean; reason?: string } {
   resetDailyIfNeeded();
+
+  // If paused due to losses, block
+  if (dailyPaused) {
+    return { ok: false, reason: `paused: daily loss limit hit (-$${MAX_DAILY_LOSS}), waiting for tomorrow` };
+  }
+
+  // Dedup: max buys per outcome
   const key = `${slug}:${outcome}`;
   const count = dailyBuys.get(key) || 0;
   if (count >= MAX_BUYS_PER_MARKET) {
-    return { ok: false, reason: `dedup: already bought ${key} ${count}x today (max ${MAX_BUYS_PER_MARKET})` };
+    return { ok: false, reason: `dedup: already bought ${key} ${count}x (max ${MAX_BUYS_PER_MARKET})` };
   }
-  // Daily loss limit: only block if we've spent a lot AND are losing
-  // Check if positions are down by comparing spent vs current portfolio
-  if (dailySpent > 50) {
+
+  // Both-sides limit: max 2 different outcomes per event slug
+  const eventOutcomes = dailyEvents.get(slug) || new Set();
+  if (!eventOutcomes.has(outcome) && eventOutcomes.size >= MAX_PER_EVENT) {
+    return { ok: false, reason: `both-sides limit: already have ${eventOutcomes.size} sides of ${slug}` };
+  }
+
+  // Periodic loss check: every N trades, check if we're losing too much
+  if (tradesSinceCheck >= LOSS_CHECK_INTERVAL && dailySpent > 30) {
+    tradesSinceCheck = 0;
     try {
-      const raw = bullpen("polymarket preflight --output json");
+      const raw = bullpen("polymarket positions --output json");
       const start = raw.indexOf("{"); const end = raw.lastIndexOf("}");
       if (start >= 0 && end > start) {
         const d = JSON.parse(raw.substring(start, end + 1));
-        const cash = parseFloat((d.balance_usd || "$0").replace(/[^0-9.]/g, "")) || 0;
-        // If cash is very low and we've spent a lot, we're probably losing
-        if (cash < 5 && dailySpent > DAILY_LOSS_LIMIT) {
-          return { ok: false, reason: `daily loss limit: spent $${dailySpent} today, only $${cash.toFixed(0)} cash left` };
+        const upnl = parseFloat(d.summary?.unrealized_pnl || "0");
+        console.log(`  [RISK] Daily check: spent $${dailySpent}, uPNL $${upnl.toFixed(2)}`);
+        if (upnl < -MAX_DAILY_LOSS) {
+          dailyPaused = true;
+          console.log(`  [RISK] PAUSED — uPNL $${upnl.toFixed(2)} below -$${MAX_DAILY_LOSS} limit`);
+          return { ok: false, reason: `loss limit: uPNL $${upnl.toFixed(2)} exceeded -$${MAX_DAILY_LOSS}` };
         }
       }
     } catch {}
   }
+
   return { ok: true };
 }
 
 function recordBuy(slug: string, outcome: string): void {
   const key = `${slug}:${outcome}`;
   dailyBuys.set(key, (dailyBuys.get(key) || 0) + 1);
+  if (!dailyEvents.has(slug)) dailyEvents.set(slug, new Set());
+  dailyEvents.get(slug)!.add(outcome);
   dailySpent += TRADE_AMOUNT_USD;
+  tradesSinceCheck++;
 }
 
 // ── Trader analytics (for future moonshot scoring) ──────────────────

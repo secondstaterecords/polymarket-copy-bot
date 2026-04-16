@@ -18,6 +18,7 @@ const emptyState = {
   dailyExposure: 0,
   seenPositions: new Set<string>(),
   recentSignals: [],
+  activeMarkets: new Set<string>(),
 };
 
 describe("shouldCopyTrade", () => {
@@ -60,5 +61,27 @@ describe("shouldCopyTrade", () => {
   it("always passes SELL signals", () => {
     const r = shouldCopyTrade({ ...baseSignal, side: "SELL", price: 0.05 }, DEFAULT_CONFIG, emptyState);
     expect(r.pass).toBe(true);
+  });
+  it("rejects noisy trader with too many signals/hour", () => {
+    const now = Date.now();
+    const recentSignals = Array.from({ length: 25 }, (_, i) => ({
+      ...baseSignal,
+      timestamp: new Date(now - i * 1000).toISOString(), // 25 signals in last 25 seconds
+    }));
+    const state = { ...emptyState, recentSignals };
+    const r = shouldCopyTrade(baseSignal, DEFAULT_CONFIG, state);
+    expect(r.pass).toBe(false);
+    expect(r.reason).toContain("noise");
+  });
+  it("rejects cross-trader duplicate market", () => {
+    const state = { ...emptyState, activeMarkets: new Set(["test-market:Yes"]) };
+    const r = shouldCopyTrade(baseSignal, DEFAULT_CONFIG, state);
+    expect(r.pass).toBe(false);
+    expect(r.reason).toContain("dedup");
+  });
+  it("allows same market different outcome", () => {
+    const state = { ...emptyState, activeMarkets: new Set(["test-market:No"]) };
+    const r = shouldCopyTrade(baseSignal, DEFAULT_CONFIG, state);
+    expect(r.pass).toBe(true); // We hold No, signal is for Yes — different outcome
   });
 });
