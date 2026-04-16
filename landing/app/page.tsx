@@ -80,7 +80,7 @@ function Nav() {
     <header className="relative z-20 border-b border-moss/40">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-8 py-6">
         <div className="flex items-baseline gap-6">
-          <span className="display text-2xl text-paper">Vole<span className="text-phosphor">.</span></span>
+          <span className="display text-2xl text-paper">Coattail<span className="text-phosphor">.</span></span>
           <span className="mono text-[10px] uppercase tracking-[0.3em] text-paper-muted">
             prediction-market copy desk
           </span>
@@ -108,7 +108,7 @@ function Hero() {
         {/* Top meta line */}
         <div className="rise flex items-center gap-4 mono text-[11px] uppercase tracking-[0.2em] text-paper-muted">
           <span className="text-phosphor glow">●</span>
-          <span>VOLE-01 · live on hetzner · 22 wallets tracked</span>
+          <span>COATTAIL-01 · live on hetzner · 22 wallets tracked</span>
           <span className="text-moss">/</span>
           <span>session #{new Date().toISOString().split("T")[0]}</span>
         </div>
@@ -353,7 +353,7 @@ function Pricing() {
               </div>
             </div>
             <p className="mt-6 text-paper-muted">
-              Install Bullpen, run one command, copy Vole&rsquo;s live wallet.
+              Install Bullpen, run one command, copy Coattail&rsquo;s live wallet.
               Your trades mirror ours — paused when we pause.
             </p>
             <ul className="mono mt-10 space-y-3 text-sm">
@@ -364,7 +364,7 @@ function Pricing() {
               <Feature>email support (~24h)</Feature>
             </ul>
             <a
-              href="mailto:hello@vole.me?subject=Tier I access"
+              href="mailto:hello@coattail.me?subject=Tier I access"
               className="mt-12 block border border-moss/60 py-4 text-center mono text-sm uppercase tracking-[0.2em] text-paper transition-colors hover:border-paper"
             >
               Request access →
@@ -401,7 +401,7 @@ function Pricing() {
               <Feature accent>Hetzner install guide ($4/mo server)</Feature>
             </ul>
             <a
-              href="mailto:hello@vole.me?subject=Tier II access"
+              href="mailto:hello@coattail.me?subject=Tier II access"
               className="mt-12 block bg-phosphor py-4 text-center mono text-sm uppercase tracking-[0.2em] text-ink transition-colors hover:bg-transparent hover:text-phosphor"
             >
               Take the keys →
@@ -437,7 +437,7 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-8">
         <div className="grid gap-12 md:grid-cols-[2fr_1fr_1fr]">
           <div>
-            <div className="display text-3xl text-paper">Vole<span className="text-phosphor">.</span></div>
+            <div className="display text-3xl text-paper">Coattail<span className="text-phosphor">.</span></div>
             <p className="mt-4 max-w-sm text-paper-muted">
               Built by one operator in Charlottesville. Same hands on the
               keyboard as on the trades.
@@ -458,7 +458,7 @@ function Footer() {
               contact
             </div>
             <ul className="mt-4 space-y-2 text-paper">
-              <li><a href="mailto:hello@vole.me" className="hover:text-phosphor">hello@vole.me</a></li>
+              <li><a href="mailto:hello@coattail.me" className="hover:text-phosphor">hello@coattail.me</a></li>
               <li><a href="#" className="hover:text-phosphor">telegram</a></li>
               <li><a href="#" className="hover:text-phosphor">discord</a></li>
             </ul>
@@ -466,7 +466,7 @@ function Footer() {
         </div>
         <div className="rule mt-12" />
         <div className="mono mt-8 flex flex-col justify-between gap-2 text-[10px] uppercase tracking-[0.2em] text-paper-muted md:flex-row">
-          <span>© {new Date().getFullYear()} vole — all signals digital</span>
+          <span>© {new Date().getFullYear()} coattail — all signals digital</span>
           <span>built with a bot, for bots</span>
         </div>
       </div>

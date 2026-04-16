@@ -20,7 +20,7 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Vole — Copy trade the sharpest Polymarket wallets",
+  title: "Coattail — Copy the sharpest Polymarket wallets",
   description:
     "A bot mirroring traders hitting 92% win rates on prediction markets. Adaptive sizing, honest filters, no fluff.",
 };
