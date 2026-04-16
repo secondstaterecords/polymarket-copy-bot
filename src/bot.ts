@@ -576,22 +576,30 @@ function refreshPnl(): void {
       // Re-alert every hour if still broken (was: only once, easy to miss)
       const sinceLastAlert = Date.now() - lastAuthAlertTime;
       if (!authAlertSent || sinceLastAlert > 60 * 60 * 1000) {
-        log("AUTH", "Bullpen auth expired — auto-opening login flow");
-        // Auto-launch login in a new Terminal window (macOS)
+        log("AUTH", "Bullpen auth expired — generating login code");
+        // Try to generate a fresh login code and include it in the alert
+        let loginCode: string | null = null;
         try {
           const { execSync } = require("child_process");
-          execSync(`osascript -e 'tell application "Terminal" to do script "bullpen login"'`, { timeout: 5000 });
-          log("AUTH", "Opened Terminal with bullpen login command");
+          const BULLPEN = process.env.BULLPEN_PATH || `${process.env.HOME}/.local/bin/bullpen`;
+          // Kill any stale login processes
+          try { execSync("pkill -f 'bullpen login' 2>/dev/null", { timeout: 3000 }); } catch {}
+          // Start a new login attempt, capture the code from output
+          execSync(`nohup ${BULLPEN} login --no-browser > /tmp/bpl-auto.log 2>&1 & sleep 5`, { timeout: 10000, shell: "/bin/bash" });
+          const out = execSync(`cat /tmp/bpl-auto.log 2>/dev/null || echo ""`, { encoding: "utf-8", timeout: 3000 });
+          const match = out.match(/([A-Z]{4}-[A-Z]{4})/);
+          if (match) loginCode = match[1];
         } catch (err: any) {
-          log("AUTH", `Could not auto-open Terminal: ${err.message}`);
+          log("AUTH", `Could not auto-generate login code: ${err.message}`);
         }
+        const codeBlock = loginCode
+          ? `\n\n*Login code (tap to copy):*\n\`${loginCode}\`\n\n1. Tap: https://app.bullpen.fi/device\n2. Enter code above\n3. Bot resumes in ~30s`
+          : `\n\nSSH to server and run: \`bullpen login\``;
         sendTelegram(
           `⚠️ *Bullpen auth EXPIRED*\n\n` +
-          `Trades and redeems failing — winnings stuck.\n\n` +
-          `I just opened a Terminal window with \`bullpen login\` — ` +
-          `just scan the QR or click the URL that appears.\n\n` +
-          `Bot resumes automatically once logged in.\n\n` +
-          `_Alert repeats every 60 min until fixed._`
+          `Trades failing — winnings stuck.` +
+          codeBlock +
+          `\n\n_Alert repeats every 60 min until fixed._`
         );
         authAlertSent = true;
         lastAuthAlertTime = Date.now();
