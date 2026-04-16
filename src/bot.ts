@@ -37,6 +37,7 @@ let dailyHighWaterMark = 0;
 let lastDrawdownReset = "";
 let totalCapital = 0; // balance + positions value — updated on each P&L refresh
 let usdcBalance = 0;  // available USDC — updated on each P&L refresh
+let authAlertSent = false;  // prevent repeated auth-expired alerts
 
 const seenTrades = new Set<string>();
 const seenPositions = new Set<string>();
@@ -540,8 +541,17 @@ function refreshPnl(): void {
     }
 
     // Try redeeming resolved markets
-    const redeemed = redeemResolved();
-    if (redeemed) log("P&L", `Redeemed resolved markets: ${redeemed}`);
+    const redeemStatus = redeemResolved();
+    if (redeemStatus.authExpired) {
+      if (!authAlertSent) {
+        log("AUTH", "Bullpen auth expired — redeem/trades failing. Run `bullpen login`");
+        sendTelegram(`⚠️ *Bullpen auth expired*\n\nTrades and redeems are failing.\n\nRun on server:\n\`bullpen login\``);
+        authAlertSent = true;
+      }
+    } else if (redeemStatus.success && redeemStatus.message) {
+      log("P&L", `Redeemed resolved markets: ${redeemStatus.message}`);
+      authAlertSent = false; // Reset once auth is working again
+    }
   } catch (err: any) {
     log("FAIL", `P&L refresh error: ${err.message}`);
   }

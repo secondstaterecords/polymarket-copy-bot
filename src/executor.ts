@@ -199,8 +199,19 @@ export function getTraderProfile(address: string): any | null {
   return result.data;
 }
 
-export function redeemResolved(): string | null {
+export interface RedeemStatus {
+  success: boolean;
+  message: string;
+  authExpired: boolean;
+}
+
+export function redeemResolved(): RedeemStatus {
   const result = bullpenExec("polymarket redeem --yes --output json");
-  if (result.success && result.stdout && !result.stdout.includes("nothing")) return result.stdout;
-  return null;
+  const out = (result.stdout + " " + result.stderr).toLowerCase();
+  const authExpired = out.includes("login required") || out.includes("unauthorized") || out.includes("invalid refresh token") || out.includes("re-authenticate");
+  if (authExpired) return { success: false, message: "auth expired — run `bullpen login`", authExpired: true };
+  if (result.success && result.stdout && !result.stdout.includes("nothing") && !result.stdout.includes("no_redeemable")) {
+    return { success: true, message: result.stdout, authExpired: false };
+  }
+  return { success: true, message: "", authExpired: false };
 }
