@@ -22,10 +22,10 @@ function Navbar() {
           </span>
         </div>
         <a
-          href="#booking"
+          href="#pricing"
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
         >
-          Book Setup
+          Get Started
         </a>
       </div>
     </nav>
@@ -39,26 +39,25 @@ function Hero() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-zinc-950 to-zinc-950" />
       <div className="relative mx-auto max-w-4xl px-6 text-center">
         <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl">
-          Copy the Best Polymarket Traders.{" "}
-          <span className="text-emerald-400">Automatically.</span>
+          Copy a Profitable Polymarket Wallet.{" "}
+          <span className="text-emerald-400">In one command.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-400 md:text-xl">
-          Our bot watches top traders with 60%+ win rates and mirrors their
-          positions in real-time. Smart filters prevent bad trades. You sleep, it
-          works.
+          A bot tracking 22 top traders with 92%+ win rates on some. Adaptive sizing,
+          smart filters, zero manual work. Runs 24/7 on a cloud server.
         </p>
         <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
           <a
-            href="#booking"
+            href="#pricing"
             className="rounded-lg bg-emerald-600 px-8 py-3.5 text-base font-semibold text-white transition-colors hover:bg-emerald-500"
           >
-            Book a Setup Session &mdash; $10
+            See Pricing
           </a>
           <a
             href="#how-it-works"
             className="rounded-lg border border-zinc-700 px-8 py-3.5 text-base font-semibold text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
           >
-            See How It Works
+            How It Works
           </a>
         </div>
       </div>
@@ -242,45 +241,102 @@ const includes = [
   "1 week of support",
 ];
 
+const starterIncludes = [
+  "Copy a verified profitable wallet (62%+ win rate)",
+  "Bullpen CLI install instructions",
+  "Your referral link with fee cashback",
+  "Telegram alerts for trades",
+  "Email support",
+];
+
+const proIncludes = [
+  "Full bot running on your machine or server",
+  "Copies 22+ top traders simultaneously",
+  "Adaptive sizing based on trader track record (2x on winners)",
+  "Smart filters (noise, dedup, price, daily caps)",
+  "Live dashboard + per-trader stats + CLV tracking",
+  "Telegram alerts for trades, wins, losses",
+  "30 days of support + all future updates",
+];
+
 function Pricing() {
   return (
     <section
       id="pricing"
       className="border-t border-zinc-800/50 bg-zinc-900/30 py-20 md:py-28"
     >
-      <div className="mx-auto max-w-xl px-6">
+      <div className="mx-auto max-w-5xl px-6">
         <h2 className="text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">
-          Get Started
+          Start Copy Trading
         </h2>
-        <div className="mt-12 rounded-2xl border border-zinc-800 bg-zinc-900 p-8 md:p-10">
-          <div className="text-center">
-            <div className="text-sm font-medium uppercase tracking-wider text-emerald-500">
-              Setup Consultation
+        <p className="mx-auto mt-4 max-w-xl text-center text-zinc-400">
+          Two ways to get started. Simple starter for beginners, full bot for power users.
+        </p>
+        <div className="mt-12 grid gap-6 md:grid-cols-2">
+          {/* Starter tier */}
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 md:p-10">
+            <div className="text-sm font-medium uppercase tracking-wider text-zinc-400">
+              Starter
             </div>
-            <div className="mt-4 flex items-baseline justify-center gap-1">
-              <span className="text-5xl font-bold text-white">$10</span>
-              <span className="text-zinc-500">one-time</span>
+            <div className="mt-2 text-xl font-semibold text-white">Copy My Wallet</div>
+            <div className="mt-4 flex items-baseline gap-1">
+              <span className="text-5xl font-bold text-white">$29</span>
+              <span className="text-zinc-500">/month</span>
             </div>
+            <p className="mt-3 text-sm text-zinc-400">
+              One command. Bullpen does the work. You get the same trades I make.
+            </p>
+            <ul className="mt-8 space-y-3">
+              {starterIncludes.map((item) => (
+                <li key={item} className="flex items-start gap-3 text-zinc-300">
+                  <Check className="h-5 w-5 shrink-0 text-emerald-500 mt-0.5" />
+                  <span className="text-sm">{item}</span>
+                </li>
+              ))}
+            </ul>
+            <a
+              href="#booking"
+              className="mt-8 block w-full rounded-lg border border-zinc-700 bg-zinc-800 py-3.5 text-center text-base font-semibold text-white transition-colors hover:border-zinc-500 hover:bg-zinc-750"
+            >
+              Start Copying &mdash; $29/mo
+            </a>
           </div>
-          <ul className="mt-8 space-y-3">
-            {includes.map((item) => (
-              <li key={item} className="flex items-center gap-3 text-zinc-300">
-                <Check className="h-5 w-5 shrink-0 text-emerald-500" />
-                {item}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-6 text-center text-sm text-zinc-500">
-            The bot itself is free and open-source. You&apos;re paying for the
-            setup expertise.
-          </p>
-          <a
-            href="#booking"
-            className="mt-8 block w-full rounded-lg bg-emerald-600 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-emerald-500"
-          >
-            Book Now
-          </a>
+
+          {/* Pro tier */}
+          <div className="relative rounded-2xl border border-emerald-500/50 bg-zinc-900 p-8 md:p-10">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-500 px-3 py-1 text-xs font-bold text-zinc-950">
+              POWER USER
+            </div>
+            <div className="text-sm font-medium uppercase tracking-wider text-emerald-500">
+              Pro
+            </div>
+            <div className="mt-2 text-xl font-semibold text-white">Run Your Own Bot</div>
+            <div className="mt-4 flex items-baseline gap-1">
+              <span className="text-5xl font-bold text-white">$99</span>
+              <span className="text-zinc-500">/month</span>
+            </div>
+            <p className="mt-3 text-sm text-zinc-400">
+              Full source code. Runs on your machine or server. Copies 22 traders in parallel.
+            </p>
+            <ul className="mt-8 space-y-3">
+              {proIncludes.map((item) => (
+                <li key={item} className="flex items-start gap-3 text-zinc-300">
+                  <Check className="h-5 w-5 shrink-0 text-emerald-500 mt-0.5" />
+                  <span className="text-sm">{item}</span>
+                </li>
+              ))}
+            </ul>
+            <a
+              href="#booking"
+              className="mt-8 block w-full rounded-lg bg-emerald-600 py-3.5 text-center text-base font-semibold text-white transition-colors hover:bg-emerald-500"
+            >
+              Get Pro &mdash; $99/mo
+            </a>
+          </div>
         </div>
+        <p className="mt-8 text-center text-sm text-zinc-500">
+          Not financial advice. Past results don&apos;t guarantee future performance. You&apos;re trading with real money.
+        </p>
       </div>
     </section>
   );
