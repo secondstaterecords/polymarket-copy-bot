@@ -77,8 +77,13 @@ export function shouldCopyTrade(signal: TradeSignal, config: BotConfig, state: F
   if (currentExposure + risk.tradeAmountUsd > state.maxPerMarket)
     return { pass: false, reason: `market cap: $${currentExposure}/$${Math.round(state.maxPerMarket)}` };
 
-  if (state.dailyExposure + risk.tradeAmountUsd > state.maxDailyExposure)
-    return { pass: false, reason: `daily cap: $${state.dailyExposure}/$${Math.round(state.maxDailyExposure)}` };
+  // Daily cap — but proven winners (medium+ confidence, EV > 0.3) bypass up to 2x the cap
+  // so we don't starve the 92% WR trader's signals when bot hits daily limit early.
+  const ev = state.traderEv?.get(signal.traderName);
+  const isProvenWinner = ev && ev.confidence !== "low" && ev.expectedValue > 0.3;
+  const effectiveDailyCap = isProvenWinner ? state.maxDailyExposure * 2 : state.maxDailyExposure;
+  if (state.dailyExposure + risk.tradeAmountUsd > effectiveDailyCap)
+    return { pass: false, reason: `daily cap: $${state.dailyExposure}/$${Math.round(effectiveDailyCap)}${isProvenWinner ? " (boosted)" : ""}` };
 
   if (filters.requireMultiWallet) {
     const windowMs = filters.multiWalletWindow * 60 * 1000;

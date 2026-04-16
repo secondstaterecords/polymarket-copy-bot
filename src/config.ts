@@ -92,8 +92,8 @@ export const DEFAULT_CONFIG: BotConfig = {
   },
   risk: {
     tradeAmountUsd: 5,           // Base trade size — adaptive sizing multiplies by 0.5-2x based on trader EV
-    maxPerMarketPct: 5,          // Max 5% of capital per market (pro bettor standard, was 12%)
-    maxDailyExposurePct: 40,     // Max 40% of capital deployed per day
+    maxPerMarketPct: 5,          // Max 5% of capital per market (pro bettor standard)
+    maxDailyExposurePct: 75,     // Max 75% of capital deployed per day (raised from 40 — don't starve winning signals)
     maxDrawdownPct: 20,          // Circuit breaker at 20% drawdown from daily high
     fallbackCapital: 120,        // Fallback if balance check fails ($)
     takeProfitPct: 900,          // Auto-sell when position is up 900%+ (safety net for moonshots)
