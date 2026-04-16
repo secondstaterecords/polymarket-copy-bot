@@ -25,7 +25,7 @@ import {
 } from "./db";
 import { computePaperPnl, computeRealPnl, PnlResult } from "./tracker";
 import Database from "better-sqlite3";
-import { telegramEnabled, alertTrade, alertPnl, alertDailyGames } from "./telegram";
+import { telegramEnabled, alertTrade, alertPnl, alertDailyGames, sendTelegram } from "./telegram";
 
 // ── State ───────────────────────────────────────────────────────────
 let config: BotConfig;
@@ -436,10 +436,16 @@ function refreshPnl(): void {
     const activePnl = config.paperMode ? paperPnl : realPnl;
     const positionsValue = activePnl.invested + activePnl.pnl;
     if (!config.paperMode) {
+      const prevBalance = usdcBalance;
       const bal = getBalance();
       if (bal !== null) {
         usdcBalance = bal;
         totalCapital = bal + positionsValue;
+        // Alert when balance recovers enough to trade again
+        if (prevBalance < config.risk.tradeAmountUsd && bal >= config.risk.tradeAmountUsd) {
+          log("CASH", `Balance recovered to $${bal.toFixed(2)} — live trading resumed`);
+          sendTelegram(`💰 *Cash is back!*\nBalance: $${bal.toFixed(2)}\nLive trading resumed automatically.`);
+        }
       } else {
         // Fallback: use configured capital if balance check fails
         totalCapital = Math.max(config.risk.fallbackCapital, positionsValue);
