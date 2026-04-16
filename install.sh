@@ -34,7 +34,7 @@ done
 
 if [ -z "$BULLPEN_PATH" ]; then
     echo -e "  ${DIM}Installing Bullpen CLI...${NC}"
-    curl -fsSL https://bullpen.fi/install.sh | bash 2>/dev/null || curl -fsSL https://cli.bullpen.fi/install.sh | bash 2>/dev/null
+    curl -fsSL https://cli.bullpen.fi/install.sh | bash 2>/dev/null || curl -fsSL https://bullpen.fi/install.sh | bash 2>/dev/null
     for p in "$HOME/.local/bin/bullpen" "$HOME/.bullpen/bin/bullpen"; do
         if [ -f "$p" ]; then BULLPEN_PATH="$p"; break; fi
     done
