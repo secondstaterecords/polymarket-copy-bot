@@ -175,6 +175,20 @@ function handleBuy(signal: TradeSignal): void {
   const paperShares = signal.price > 0 ? amount / signal.price : 0;
 
   if (!config.paperMode) {
+    // Check balance before attempting buy — avoid spamming failed trades
+    if (usdcBalance < amount + 1) {
+      log("SKIP", `${signal.traderName} ${signal.slug}:${signal.outcome} — insufficient balance ($${usdcBalance.toFixed(2)} < $${amount})`);
+      // Still record as paper trade so we can track what we would have done
+      log("PAPER", `${signal.traderName} BUY ${signal.slug}:${signal.outcome} $${amount} @ ${signal.price} (no cash)`);
+      insertTrade(db, {
+        timestamp: new Date().toISOString(), trader: signal.traderName,
+        traderAddress: signal.traderAddress, action: "BUY", market: signal.slug,
+        slug: signal.slug, outcome: signal.outcome, traderAmount: signal.traderAmount,
+        ourAmount: 0, entryPrice: signal.price, paperShares,
+        status: "paper", isReal: false,
+      });
+      return;
+    }
     // Attempt real buy
     const result = buyMarket(signal.slug, signal.outcome, amount);
     if (result.success) {
@@ -196,6 +210,8 @@ function handleBuy(signal: TradeSignal): void {
         isReal: true,
       });
       alertTrade("BUY", signal.traderName, signal.slug, signal.outcome, signal.price, amount, "REAL");
+      // Update balance after successful buy
+      usdcBalance = Math.max(0, usdcBalance - amount);
       // Record analytics for trader scoring
       try {
         const analyticsPath = join(config.dataDir, "trader-analytics.json");
