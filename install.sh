@@ -60,10 +60,22 @@ echo -e "${CYAN}[3/5]${NC} Bullpen login..."
 if $BULLPEN_PATH polymarket preflight --output json 2>/dev/null | grep -q "balance_usd"; then
     echo -e "  ${GREEN}✓${NC} Already logged in"
 else
+    # Open signup page with referral link baked in
+    SIGNUP_URL="https://bullpen.fi/@${REFERRAL}"
     echo ""
-    echo -e "  ${BOLD}If signing up, use referral: ${CYAN}${REFERRAL}${NC}"
+    echo -e "  ${BOLD}Step 1: Create your Bullpen account${NC}"
+    echo -e "  Opening ${CYAN}${SIGNUP_URL}${NC} ..."
     echo ""
-    $BULLPEN_PATH login 2>/dev/null || true
+    open "$SIGNUP_URL" 2>/dev/null || xdg-open "$SIGNUP_URL" 2>/dev/null || echo -e "  Open this URL manually: ${CYAN}${SIGNUP_URL}${NC}"
+    echo ""
+    echo -e "  ${BOLD}Sign up in the browser, then come back here.${NC}"
+    echo -e "  ${DIM}(The referral is already included in the link)${NC}"
+    echo ""
+    read -p "  Press Enter when you've created your account..." </dev/tty
+    echo ""
+    echo -e "  ${BOLD}Step 2: Log in via terminal${NC}"
+    echo ""
+    $BULLPEN_PATH login </dev/tty || true
 fi
 
 # Approve trading
