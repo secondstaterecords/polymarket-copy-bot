@@ -25,7 +25,13 @@ import {
 } from "./db";
 import { computePaperPnl, computeRealPnl, PnlResult } from "./tracker";
 import Database from "better-sqlite3";
-import { telegramEnabled, alertTrade, alertPnl, alertDailyGames, sendTelegram } from "./telegram";
+import {
+  telegramEnabled, alertTrade, alertPnl, alertDailyGames, sendTelegram,
+  alertBigWin, alertBigLoss, alertHotTrader, alertColdTrader,
+  alertDailyRecap, alertDrawdown, alertResolvingSoon,
+} from "./telegram";
+import { scanAndRecordResolutions } from "./resolution-tracker";
+import { recomputeAllTraderStats, getTraderSizeMultiplier } from "./trader-stats";
 
 // ── State ───────────────────────────────────────────────────────────
 let config: BotConfig;
@@ -38,6 +44,12 @@ let lastDrawdownReset = "";
 let totalCapital = 0; // balance + positions value — updated on each P&L refresh
 let usdcBalance = 0;  // available USDC — updated on each P&L refresh
 let authAlertSent = false;  // prevent repeated auth-expired alerts
+let lastDailyRecapDate = "";  // yyyy-mm-dd of last daily recap sent
+let lastResolutionScan = 0;   // timestamp of last resolution scan
+let lastStatsRecompute = 0;   // timestamp of last stats recomputation
+const alertedBigLosses = new Set<string>(); // slug:outcome of losses already alerted
+const alertedBigWins = new Set<string>();  // slug:outcome of wins already alerted
+const alertedResolvingSoon = new Set<string>(); // slug:outcome of resolving-soon alerts
 
 const seenTrades = new Set<string>();
 const seenPositions = new Set<string>();
@@ -172,7 +184,10 @@ function processSignal(signal: TradeSignal): void {
 }
 
 function handleBuy(signal: TradeSignal): void {
-  const amount = config.risk.tradeAmountUsd;
+  // Adaptive sizing: multiply base trade amount by trader's size multiplier
+  const baseAmount = config.risk.tradeAmountUsd;
+  const multiplier = getTraderSizeMultiplier(db, signal.traderName);
+  const amount = Math.round(baseAmount * multiplier * 100) / 100;
   const paperShares = signal.price > 0 ? amount / signal.price : 0;
 
   if (!config.paperMode) {
@@ -551,6 +566,121 @@ function refreshPnl(): void {
     } else if (redeemStatus.success && redeemStatus.message) {
       log("P&L", `Redeemed resolved markets: ${redeemStatus.message}`);
       authAlertSent = false; // Reset once auth is working again
+    }
+
+    // ── Resolution tracking (every 30 minutes) ──────────────────
+    const now = Date.now();
+    if (now - lastResolutionScan > 30 * 60 * 1000) {
+      lastResolutionScan = now;
+      try {
+        const result = scanAndRecordResolutions(db, 40);
+        if (result.newlyResolved > 0) {
+          log("RES", `Resolution scan: ${result.newlyResolved} newly resolved out of ${result.checked} checked`);
+        }
+      } catch (err: any) {
+        log("RES", `Resolution scan error: ${err.message}`);
+      }
+    }
+
+    // ── Recompute trader stats (every 2 hours) ──────────────────
+    if (now - lastStatsRecompute > 2 * 60 * 60 * 1000) {
+      lastStatsRecompute = now;
+      try {
+        const stats = recomputeAllTraderStats(db);
+        const withEnoughData = stats.filter(s => s.confidence !== "low");
+        if (withEnoughData.length > 0) {
+          log("STATS", `Updated stats for ${withEnoughData.length} traders with sufficient data`);
+
+          // Alert on hot traders (high EV + high confidence, haven't alerted recently)
+          for (const s of withEnoughData) {
+            if (s.confidence === "high" && s.expectedValue > 0.3 && s.winRate >= 0.6) {
+              alertHotTrader(s.trader, s.winRate, s.avgReturnPct, s.resolvedTrades);
+            }
+          }
+        }
+      } catch (err: any) {
+        log("STATS", `Stats recompute error: ${err.message}`);
+      }
+    }
+
+    // ── Big loss alerts — position down >50% ─────────────────────
+    if (!config.paperMode) {
+      for (const pos of realPnl.positions) {
+        const key = `${pos.slug}:${pos.outcome}`;
+        if (pos.entry > 0 && pos.current > 0 && !alertedBigLosses.has(key)) {
+          const lossPct = ((pos.current - pos.entry) / pos.entry) * 100;
+          if (lossPct < -50 && pos.invested >= 5) {
+            alertBigLoss(pos.market || pos.slug, pos.outcome, pos.entry, pos.current, pos.pnl);
+            alertedBigLosses.add(key);
+          }
+        }
+      }
+    }
+
+    // ── Resolving-soon alerts (position ends in <2 hours) ────────
+    if (pollCount % 30 === 0 && !config.paperMode) {
+      try {
+        const { execSync } = require("child_process");
+        const BULLPEN = process.env.BULLPEN_PATH || `${process.env.HOME}/.local/bin/bullpen`;
+        const posRaw = execSync(`${BULLPEN} polymarket positions --output json 2>/dev/null`, { encoding: "utf-8", timeout: 15000 }).trim();
+        const ps = posRaw.indexOf("{"); const pe = posRaw.lastIndexOf("}");
+        if (ps >= 0) {
+          const data = JSON.parse(posRaw.substring(ps, pe + 1));
+          const positions = data.positions || [];
+          const resolvingSoon: any[] = [];
+          for (const p of positions) {
+            if (!p.end_date) continue;
+            const endTs = new Date(p.end_date).getTime();
+            const hoursUntil = (endTs - Date.now()) / (1000 * 60 * 60);
+            const key = `${p.slug}:${p.outcome}`;
+            if (hoursUntil > 0 && hoursUntil < 2 && !alertedResolvingSoon.has(key)) {
+              resolvingSoon.push({
+                market: p.market || p.slug, outcome: p.outcome,
+                currentPrice: parseFloat(p.current_price || "0"),
+                pnl: parseFloat(p.unrealized_pnl || "0"),
+                hoursUntil,
+              });
+              alertedResolvingSoon.add(key);
+            }
+          }
+          if (resolvingSoon.length > 0) alertResolvingSoon(resolvingSoon);
+        }
+      } catch {}
+    }
+
+    // ── Daily recap (sent once per day at ~11 PM local time) ─────
+    const recapNow = new Date();
+    const todayStr = recapNow.toISOString().split("T")[0];
+    if (recapNow.getHours() >= 23 && lastDailyRecapDate !== todayStr) {
+      lastDailyRecapDate = todayStr;
+      try {
+        const dayStart = todayStr + "T00:00:00.000Z";
+        const todayTrades = db.prepare(`
+          SELECT * FROM trades WHERE timestamp >= ? AND is_real = 1 AND status = 'success'
+        `).all(dayStart) as any[];
+        const resolvedToday = db.prepare(`
+          SELECT t.*, r.won, r.resolved_price
+          FROM trades t
+          JOIN resolutions r ON r.slug = t.slug AND r.outcome = t.outcome
+          WHERE t.timestamp >= ? AND t.is_real = 1 AND t.action = 'BUY' AND t.status = 'success'
+        `).all(dayStart) as any[];
+        const wins = resolvedToday.filter(r => r.won === 1).length;
+        const losses = resolvedToday.filter(r => r.won === 0).length;
+        let biggestWin: any = null, biggestLoss: any = null;
+        for (const r of resolvedToday) {
+          const profit = r.won ? (r.our_amount / r.entry_price - r.our_amount) : -r.our_amount;
+          if (!biggestWin || profit > biggestWin.profit) biggestWin = { market: r.slug, profit };
+          if (!biggestLoss || profit < biggestLoss.loss) biggestLoss = { market: r.slug, loss: profit };
+        }
+        alertDailyRecap({
+          trades: todayTrades.length, wins, losses,
+          biggestWin: biggestWin?.profit > 0 ? biggestWin : null,
+          biggestLoss: biggestLoss?.loss < 0 ? biggestLoss : null,
+          netPnl: realPnl.pnl, returnPct: realPnl.returnPct, capital: totalCapital,
+        });
+      } catch (err: any) {
+        log("RECAP", `Daily recap error: ${err.message}`);
+      }
     }
   } catch (err: any) {
     log("FAIL", `P&L refresh error: ${err.message}`);

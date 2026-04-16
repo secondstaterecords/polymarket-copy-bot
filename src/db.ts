@@ -26,6 +26,35 @@ export function createDb(dataDir: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_trades_slug ON trades(slug, outcome);
     CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
     CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp);
+
+    -- Resolution tracking: one row per slug:outcome once Polymarket resolves it
+    CREATE TABLE IF NOT EXISTS resolutions (
+      slug TEXT NOT NULL,
+      outcome TEXT NOT NULL,
+      resolved_at TEXT NOT NULL,
+      resolved_price REAL NOT NULL,
+      won INTEGER NOT NULL,
+      category TEXT,
+      checked_at TEXT NOT NULL,
+      PRIMARY KEY (slug, outcome)
+    );
+    CREATE INDEX IF NOT EXISTS idx_resolutions_resolved_at ON resolutions(resolved_at);
+
+    -- Per-trader rolling stats — updated by trader-stats.ts
+    CREATE TABLE IF NOT EXISTS trader_stats (
+      trader TEXT PRIMARY KEY,
+      total_trades INTEGER NOT NULL DEFAULT 0,
+      resolved_trades INTEGER NOT NULL DEFAULT 0,
+      wins INTEGER NOT NULL DEFAULT 0,
+      losses INTEGER NOT NULL DEFAULT 0,
+      win_rate REAL NOT NULL DEFAULT 0,
+      avg_return_pct REAL NOT NULL DEFAULT 0,
+      expected_value REAL NOT NULL DEFAULT 0,
+      best_category TEXT,
+      best_category_wr REAL,
+      size_multiplier REAL NOT NULL DEFAULT 1.0,
+      updated_at TEXT NOT NULL
+    );
   `);
   return db;
 }

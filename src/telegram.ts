@@ -157,3 +157,99 @@ export async function alertDailyGames(positions: GamePosition[]): Promise<void> 
 
   await sendTelegram(msg);
 }
+
+// ── New high-value alerts ──────────────────────────────────────────
+
+// Big win on a single position (when it resolves)
+export async function alertBigWin(
+  market: string, outcome: string, entry: number, payout: number, profit: number
+): Promise<void> {
+  await sendTelegram(
+    `🎉 *Big Win Resolved*\n` +
+    `${market} → *${outcome}*\n` +
+    `Entry ${(entry * 100).toFixed(0)}¢ → Won at 100¢\n` +
+    `Profit: *+$${profit.toFixed(2)}* (+${((payout / entry - 1) * 100).toFixed(0)}%)`
+  );
+}
+
+// Big loss warning — position down >50% but not yet resolved
+export async function alertBigLoss(
+  market: string, outcome: string, entry: number, current: number, pnl: number
+): Promise<void> {
+  await sendTelegram(
+    `🚨 *Position Warning*\n` +
+    `${market} → ${outcome}\n` +
+    `Down ${(((current - entry) / entry) * 100).toFixed(0)}% (entry ${(entry * 100).toFixed(0)}¢ → ${(current * 100).toFixed(0)}¢)\n` +
+    `Unrealized: $${pnl.toFixed(2)}\n` +
+    `_Consider closing manually if market is moving away_`
+  );
+}
+
+// Hot trader — just hit a big win themselves, worth tailing harder
+export async function alertHotTrader(
+  trader: string, winRate: number, avgReturn: number, trades: number
+): Promise<void> {
+  await sendTelegram(
+    `🔥 *Hot Trader: ${trader}*\n` +
+    `Win rate: ${(winRate * 100).toFixed(0)}% over ${trades} resolved trades\n` +
+    `Avg return: ${avgReturn >= 0 ? "+" : ""}${avgReturn.toFixed(0)}%\n` +
+    `_Bot will auto-size up next signals from this trader_`
+  );
+}
+
+// Cold trader — losing streak, bot will auto-size down
+export async function alertColdTrader(
+  trader: string, losingStreak: number, winRate: number
+): Promise<void> {
+  await sendTelegram(
+    `❄️ *Cold Streak: ${trader}*\n` +
+    `${losingStreak} losses in a row | Win rate: ${(winRate * 100).toFixed(0)}%\n` +
+    `_Bot reduced sizing — consider dropping trader if streak continues_`
+  );
+}
+
+// Daily recap
+export async function alertDailyRecap(stats: {
+  trades: number; wins: number; losses: number;
+  biggestWin: { market: string; profit: number } | null;
+  biggestLoss: { market: string; loss: number } | null;
+  netPnl: number; returnPct: number; capital: number;
+}): Promise<void> {
+  const wr = stats.wins + stats.losses > 0 ? stats.wins / (stats.wins + stats.losses) : 0;
+  let msg = `📊 *Daily Recap*\n`;
+  msg += `Trades: ${stats.trades} | Win rate: ${(wr * 100).toFixed(0)}% (${stats.wins}W/${stats.losses}L)\n`;
+  msg += `Net P&L: ${stats.netPnl >= 0 ? "+" : ""}$${stats.netPnl.toFixed(2)} (${stats.returnPct.toFixed(1)}%)\n`;
+  msg += `Capital: $${stats.capital.toFixed(2)}\n\n`;
+  if (stats.biggestWin) {
+    msg += `🏆 Biggest win: ${stats.biggestWin.market} +$${stats.biggestWin.profit.toFixed(2)}\n`;
+  }
+  if (stats.biggestLoss) {
+    msg += `💔 Biggest loss: ${stats.biggestLoss.market} -$${Math.abs(stats.biggestLoss.loss).toFixed(2)}\n`;
+  }
+  await sendTelegram(msg);
+}
+
+// Drawdown warning
+export async function alertDrawdown(
+  currentPnl: number, peakPnl: number, drawdownPct: number
+): Promise<void> {
+  await sendTelegram(
+    `⚠️ *Drawdown Alert*\n` +
+    `Down ${drawdownPct.toFixed(1)}% from peak\n` +
+    `Peak: $${peakPnl.toFixed(2)} → Current: $${currentPnl.toFixed(2)}\n` +
+    `_Circuit breaker may trigger at 15%_`
+  );
+}
+
+// Market resolving soon — position expires in <2 hours
+export async function alertResolvingSoon(positions: Array<{
+  market: string; outcome: string; currentPrice: number; pnl: number; hoursUntil: number;
+}>): Promise<void> {
+  if (positions.length === 0) return;
+  let msg = `⏰ *Markets Resolving Soon*\n\n`;
+  for (const p of positions.slice(0, 10)) {
+    msg += `${p.market} → *${p.outcome}* in ${p.hoursUntil.toFixed(1)}h\n`;
+    msg += `  Current: ${(p.currentPrice * 100).toFixed(0)}¢ | P&L: ${p.pnl >= 0 ? "+" : ""}$${p.pnl.toFixed(2)}\n`;
+  }
+  await sendTelegram(msg);
+}
