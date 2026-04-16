@@ -55,10 +55,16 @@ echo -e "  ${GREEN}✓${NC} Ready"
 
 # ── Bullpen login ────────────────────────────────────────────────────
 echo -e "${CYAN}[3/5]${NC} Bullpen login..."
-echo ""
-echo -e "  ${BOLD}If signing up, use referral: ${CYAN}${REFERRAL}${NC}"
-echo ""
-$BULLPEN_PATH login 2>/dev/null || true
+
+# Skip login if already authenticated
+if $BULLPEN_PATH polymarket preflight --output json 2>/dev/null | grep -q "balance_usd"; then
+    echo -e "  ${GREEN}✓${NC} Already logged in"
+else
+    echo ""
+    echo -e "  ${BOLD}If signing up, use referral: ${CYAN}${REFERRAL}${NC}"
+    echo ""
+    $BULLPEN_PATH login 2>/dev/null || true
+fi
 
 # Approve trading
 echo -e "  ${DIM}Approving trading permissions...${NC}"
