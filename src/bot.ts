@@ -44,6 +44,7 @@ let lastDrawdownReset = "";
 let totalCapital = 0; // balance + positions value — updated on each P&L refresh
 let usdcBalance = 0;  // available USDC — updated on each P&L refresh
 let authAlertSent = false;  // prevent repeated auth-expired alerts
+let lastAuthAlertTime = 0;  // last time we sent an auth alert — re-send hourly if still broken
 let lastDailyRecapDate = "";  // yyyy-mm-dd of last daily recap sent
 let lastResolutionScan = 0;   // timestamp of last resolution scan
 let lastStatsRecompute = 0;   // timestamp of last stats recomputation
@@ -572,14 +573,28 @@ function refreshPnl(): void {
     // Try redeeming resolved markets
     const redeemStatus = redeemResolved();
     if (redeemStatus.authExpired) {
-      if (!authAlertSent) {
+      // Re-alert every hour if still broken (was: only once, easy to miss)
+      const sinceLastAlert = Date.now() - lastAuthAlertTime;
+      if (!authAlertSent || sinceLastAlert > 60 * 60 * 1000) {
         log("AUTH", "Bullpen auth expired — redeem/trades failing. Run `bullpen login`");
-        sendTelegram(`⚠️ *Bullpen auth expired*\n\nTrades and redeems are failing.\n\nRun on server:\n\`bullpen login\``);
+        sendTelegram(
+          `⚠️ *Bullpen auth EXPIRED*\n\n` +
+          `Trades and redeems failing — winnings stuck.\n\n` +
+          `*Open Terminal and run:*\n` +
+          `\`bullpen login\`\n\n` +
+          `Then scan QR or open URL. Bot resumes automatically.\n\n` +
+          `_Alert repeats every 60 min until fixed._`
+        );
         authAlertSent = true;
+        lastAuthAlertTime = Date.now();
       }
     } else if (redeemStatus.success && redeemStatus.message) {
       log("P&L", `Redeemed resolved markets: ${redeemStatus.message}`);
+      if (authAlertSent) {
+        sendTelegram(`✅ *Auth restored*\nRedeems working again. Bot back to normal.`);
+      }
       authAlertSent = false; // Reset once auth is working again
+      lastAuthAlertTime = 0;
     }
 
     // ── Resolution tracking (every 30 minutes) ──────────────────
