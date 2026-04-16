@@ -576,13 +576,21 @@ function refreshPnl(): void {
       // Re-alert every hour if still broken (was: only once, easy to miss)
       const sinceLastAlert = Date.now() - lastAuthAlertTime;
       if (!authAlertSent || sinceLastAlert > 60 * 60 * 1000) {
-        log("AUTH", "Bullpen auth expired — redeem/trades failing. Run `bullpen login`");
+        log("AUTH", "Bullpen auth expired — auto-opening login flow");
+        // Auto-launch login in a new Terminal window (macOS)
+        try {
+          const { execSync } = require("child_process");
+          execSync(`osascript -e 'tell application "Terminal" to do script "bullpen login"'`, { timeout: 5000 });
+          log("AUTH", "Opened Terminal with bullpen login command");
+        } catch (err: any) {
+          log("AUTH", `Could not auto-open Terminal: ${err.message}`);
+        }
         sendTelegram(
           `⚠️ *Bullpen auth EXPIRED*\n\n` +
           `Trades and redeems failing — winnings stuck.\n\n` +
-          `*Open Terminal and run:*\n` +
-          `\`bullpen login\`\n\n` +
-          `Then scan QR or open URL. Bot resumes automatically.\n\n` +
+          `I just opened a Terminal window with \`bullpen login\` — ` +
+          `just scan the QR or click the URL that appears.\n\n` +
+          `Bot resumes automatically once logged in.\n\n` +
           `_Alert repeats every 60 min until fixed._`
         );
         authAlertSent = true;
