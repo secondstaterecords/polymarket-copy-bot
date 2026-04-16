@@ -40,10 +40,12 @@ export interface BotConfig {
   useTracker: boolean;  // Use 'bullpen tracker trades' instead of individual polling
 }
 
-// Top 15 active traders this week by P&L (from bullpen polymarket data leaderboard --period week)
-// Filtered: positive P&L, volume > $0 (actively trading)
-// Last updated: 2026-04-10
+// Top 22 active traders this week by P&L (Bullpen leaderboard --period week, filtered for actual volume)
+// Bot computes per-trader win rate/EV and auto-scales bets. Low-EV traders get 0.5x,
+// high-EV traders get 2x — no manual pruning needed.
+// Last updated: 2026-04-16
 export const DEFAULT_TRADERS: TraderConfig[] = [
+  // Original core — stats already building
   { name: "0x4924", address: "0x492442eab586f242b53bda933fd5de859c8a3782", categories: ["sports"] },
   { name: "beachboy4", address: "0xc2e7800b5af46e6093872b177b7a5e7f0563be51", categories: ["sports"] },
   { name: "Countryside", address: "0xbddf61af533ff524d27154e589d2d7a81510c684", categories: ["sports"] },
@@ -59,6 +61,14 @@ export const DEFAULT_TRADERS: TraderConfig[] = [
   { name: "Mentallyillgambld", address: "0x2b3ff45c91540e46fae1e0c72f61f4b049453446", categories: ["sports"] },
   { name: "bcda", address: "0xb45a797faa52b0fd8adc56d30382022b7b12192c", categories: ["sports"] },
   { name: "weflyhigh", address: "0x03e8a544e97eeff5753bc1e90d46e5ef22af1697" },
+  // New additions — top 30 leaderboard with real volume (>$1M weekly)
+  { name: "GamblingIsAllYouNeed", address: "0x507e52ef684ca2dd91f90a9d26d149dd3288beae", categories: ["sports"] }, // $15M vol
+  { name: "bossoskil1", address: "0xa5ea13a81d2b7e8e424b182bdc1db08e756bd96a", categories: ["sports"] }, // $7M vol
+  { name: "denizz", address: "0xbaa2bcb5439e985ce4ccf815b4700027d1b92c73", categories: ["sports"] }, // $3.5M vol
+  { name: "Cannae", address: "0x7ea571c40408f340c1c8fc8eaacebab53c1bde7b", categories: ["sports"] }, // $3.2M vol
+  { name: "CarlosMC", address: "0x777d9f00c2b4f7b829c9de0049ca3e707db05143", categories: ["sports"] }, // $1.9M vol
+  { name: "gatorr", address: "0x93abbc022ce98d6f45d4444b594791cc4b7a9723", categories: ["sports"] }, // $1.2M vol
+  { name: "SecondWindCapital", address: "0x8c80d213c0cbad777d06ee3f58f6ca4bc03102c3", categories: ["sports"] }, // $432K vol
 ];
 
 export const DEFAULT_CONFIG: BotConfig = {
