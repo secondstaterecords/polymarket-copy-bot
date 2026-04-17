@@ -130,21 +130,31 @@ export default function Welcome() {
                       <span className="text-phosphor">✓ Keep checked</span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-moss/20">
-                      <span className="text-paper-muted">Allocation type</span>
-                      <span className="text-paper">Fixed</span>
+                      <span className="text-paper-muted">Allocation</span>
+                      <span className="text-phosphor">% of Balance → 2%</span>
                     </div>
-                    <div className="flex justify-between items-center py-2 border-b border-moss/20">
-                      <span className="text-paper-muted">Amount per trade</span>
-                      <span className="text-phosphor">$5</span>
-                      <span className="text-[9px] text-paper-muted">(type 5 in custom field)</span>
+                    <div className="py-1 border-b border-moss/20">
+                      <span className="text-[9px] text-paper-muted">Scales with your account — $200 balance = $4/trade, $1000 = $20/trade</span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-moss/20">
                       <span className="text-paper-muted">Max per market</span>
                       <span className="text-paper">$100</span>
                     </div>
-                    <div className="flex justify-between items-center py-2">
+                    <div className="flex justify-between items-center py-2 border-b border-moss/20">
                       <span className="text-paper-muted">When they sell</span>
                       <span className="text-phosphor">Auto-sell</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-moss/20">
+                      <span className="text-paper-muted">Total Budget</span>
+                      <span className="text-paper">None</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-moss/20">
+                      <span className="text-paper-muted">Execution Mode</span>
+                      <span className="text-phosphor">Auto</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-paper-muted">Everything else</span>
+                      <span className="text-paper">Leave as default</span>
                     </div>
                   </div>
                 </div>
