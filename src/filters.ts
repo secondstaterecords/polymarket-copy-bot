@@ -43,12 +43,16 @@ export function shouldCopyTrade(signal: TradeSignal, config: BotConfig, state: F
       s => s.traderAddress === signal.traderAddress &&
            new Date(s.timestamp).getTime() > oneHourAgo
     ).length;
-    // Check if this trader is a proven winner — raise their limit to 3x
+    // Trader tiers: elite bypass entirely, proven get 3x, rest get normal limit
     const ev = state.traderEv?.get(signal.traderName);
+    const isElite = ev && ev.confidence !== "low" && ev.expectedValue > 1.0;
     const isProvenWinner = ev && ev.confidence !== "low" && ev.expectedValue > 0.1;
-    const limit = isProvenWinner ? filters.maxTraderSignalsPerHour * 3 : filters.maxTraderSignalsPerHour;
-    if (recentFromTrader >= limit)
-      return { pass: false, reason: `noise: ${signal.traderName} sent ${recentFromTrader} signals/hr (max ${limit}${isProvenWinner ? " boosted" : ""})` };
+    if (!isElite) {
+      const limit = isProvenWinner ? filters.maxTraderSignalsPerHour * 3 : filters.maxTraderSignalsPerHour;
+      if (recentFromTrader >= limit)
+        return { pass: false, reason: `noise: ${signal.traderName} sent ${recentFromTrader} signals/hr (max ${limit}${isProvenWinner ? " boosted" : ""})` };
+    }
+    // Elite traders (EV > 1.0, e.g. 0x2a2c): ZERO noise filtering — every signal passes
   }
 
   // ── Anti-noise: cross-trader market dedup ────────────────────────

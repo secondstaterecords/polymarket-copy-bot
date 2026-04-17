@@ -103,11 +103,12 @@ export function computeTraderStats(db: Database.Database, trader: string): Trade
 
   // Size multiplier — adaptive bet sizing
   // Low confidence: always 1.0 (no signal yet)
-  // Medium/High + positive EV: scale up to 2.0
+  // Medium/High + positive EV: scale up to 3.0 for elite traders
   // Medium/High + negative EV: scale down to 0.5 (or avoid entirely)
   let sizeMultiplier = 1.0;
   if (confidence !== "low") {
-    if (expectedValue > 0.3) sizeMultiplier = 2.0;
+    if (expectedValue > 1.0 && winRate >= 0.80) sizeMultiplier = 3.0;  // Elite (0x2a2c tier)
+    else if (expectedValue > 0.3) sizeMultiplier = 2.0;
     else if (expectedValue > 0.1) sizeMultiplier = 1.5;
     else if (expectedValue > 0) sizeMultiplier = 1.2;
     else if (expectedValue > -0.1) sizeMultiplier = 0.8;
