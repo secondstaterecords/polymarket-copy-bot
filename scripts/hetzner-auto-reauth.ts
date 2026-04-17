@@ -5,10 +5,15 @@
 // Install: npx playwright install chromium (on Hetzner)
 // Run as systemd service or: npx tsx scripts/hetzner-auto-reauth.ts
 
-import { chromium } from "playwright";
+import { chromium } from "playwright-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { execSync } from "child_process";
 import { existsSync } from "fs";
 import { join } from "path";
+
+// Stealth plugin makes headless Chromium look like a real browser
+// to bypass Vercel's bot detection on app.bullpen.fi
+chromium.use(StealthPlugin());
 
 const BULLPEN = process.env.BULLPEN_PATH || "/root/.bullpen/bin/bullpen";
 const SESSION_PATH = join(__dirname, "..", "bullpen-session.json");
