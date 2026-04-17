@@ -359,6 +359,75 @@ function Mechanism() {
   );
 }
 
+// ── Roadmap: show vision without revealing sauce ──
+function Roadmap() {
+  const phases = [
+    {
+      label: "NOW",
+      status: "live",
+      title: "Copy desk",
+      body: "Mirroring a curated roster of top-performing wallets with adaptive position sizing. Proven winners get scaled up automatically.",
+    },
+    {
+      label: "Q3 2026",
+      status: "building",
+      title: "Statistical confidence engine",
+      body: "Every trade scored against historical resolution data. The system learns which wallets win in which markets — and sizes accordingly.",
+    },
+    {
+      label: "Q4 2026",
+      status: "planned",
+      title: "Autonomous desk",
+      body: "The model begins identifying its own edge. Cross-market analysis, closing-line-value tracking, and self-correcting position management.",
+    },
+  ];
+
+  return (
+    <section id="roadmap" className="relative border-t border-moss/40 py-28">
+      <div className="mx-auto max-w-7xl px-8">
+        <div className="mb-16 max-w-3xl">
+          <div className="mono text-[11px] uppercase tracking-[0.3em] text-paper-muted">
+            · where this is going
+          </div>
+          <h2 className="display mt-6 text-5xl text-paper md:text-6xl">
+            Copy trading is
+            <br />
+            <span className="italic text-gold">phase one.</span>
+          </h2>
+        </div>
+
+        <div className="relative grid gap-0 md:grid-cols-3">
+          {/* Connecting line */}
+          <div className="absolute top-[52px] left-0 right-0 hidden h-px bg-moss/40 md:block" />
+          {phases.map((p, i) => (
+            <div key={p.label} className={`relative p-8 ${i !== phases.length - 1 ? "md:border-r" : ""} ${i !== 0 ? "border-t md:border-t-0" : ""} border-moss/40`}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className={`h-3 w-3 rounded-full ${
+                  p.status === "live" ? "bg-phosphor glow" :
+                  p.status === "building" ? "bg-gold" :
+                  "bg-moss"
+                }`} />
+                <span className="mono text-[11px] uppercase tracking-[0.25em] text-paper-muted">
+                  {p.label}
+                </span>
+                {p.status === "live" && (
+                  <span className="mono text-[9px] uppercase tracking-widest text-phosphor border border-phosphor/40 px-2 py-0.5">
+                    live
+                  </span>
+                )}
+              </div>
+              <h3 className="display text-3xl text-paper">{p.title}</h3>
+              <p className="mt-4 text-paper-muted leading-relaxed">
+                {p.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ── Pricing: two tiers, editorial not boxy ──
 function Pricing() {
   return (
@@ -378,7 +447,7 @@ function Pricing() {
         </div>
 
         <div className="grid gap-0 md:grid-cols-2">
-          {/* Starter */}
+          {/* Passenger */}
           <div className="relative border border-moss/60 p-10 md:p-12">
             <div className="flex items-baseline justify-between">
               <div>
@@ -388,33 +457,35 @@ function Pricing() {
                 <h3 className="display mt-3 text-4xl text-paper">Passenger</h3>
               </div>
               <div className="mono text-right">
-                <div className="text-5xl tabular-nums text-paper">$29</div>
+                <div className="text-5xl tabular-nums text-paper">$9</div>
                 <div className="text-[10px] uppercase tracking-widest text-paper-muted mt-1">per month</div>
               </div>
             </div>
             <p className="mt-6 text-paper-muted">
-              We set you up on the standard stack. One install command,
-              and you&rsquo;re auto-mirroring the Coattail desk on your own account.
+              Auto-mirror every trade the desk makes. One setup,
+              then it runs on your own account with zero maintenance.
             </p>
             <ul className="mono mt-10 space-y-3 text-sm">
-              <Feature>white-glove setup (we run the install)</Feature>
+              <Feature>auto-mirror all trades in real time</Feature>
               <Feature>up to ~120 trades / week<span className="text-paper-muted">*</span></Feature>
+              <Feature>Telegram alerts on every trade</Feature>
+              <Feature>Discord community + AI support</Feature>
+              <Feature>weekly performance recaps</Feature>
               <Feature>referral rebate on platform fees</Feature>
-              <Feature>Telegram alerts for every trade</Feature>
-              <Feature>email support (~24h)</Feature>
             </ul>
             <a
-              href="mailto:hello@coattail.me?subject=Tier I access"
+              href="#"
+              id="tier1-btn"
               className="mt-12 block border border-moss/60 py-4 text-center mono text-sm uppercase tracking-[0.2em] text-paper transition-colors hover:border-paper"
             >
-              Request access →
+              Start mirroring — $9/mo →
             </a>
           </div>
 
           {/* Operator */}
           <div className="relative border border-phosphor bg-ink p-10 md:p-12">
             <div className="absolute -top-3 left-10 bg-phosphor px-3 py-1 mono text-[10px] uppercase tracking-[0.25em] text-ink">
-              recommended
+              full access
             </div>
             <div className="flex items-baseline justify-between">
               <div>
@@ -429,22 +500,25 @@ function Pricing() {
               </div>
             </div>
             <p className="mt-6 text-paper-muted">
-              Your own instance. Runs independently, copies the full
-              roster in parallel, your risk controls, your data.
+              Your own instance + full source code. GitHub repo access
+              means every update ships to you day-one.
             </p>
             <ul className="mono mt-10 space-y-3 text-sm">
-              <Feature accent>private instance (white-label)</Feature>
-              <Feature accent>full roster mirrored (vs 1 wallet)</Feature>
-              <Feature accent>live dashboard + trade analytics</Feature>
-              <Feature accent>adaptive sizing, custom risk limits</Feature>
-              <Feature accent>30-day priority support</Feature>
-              <Feature accent>concierge deploy (we configure it)</Feature>
+              <Feature accent>everything in Passenger</Feature>
+              <Feature accent>private GitHub repo (every commit, day-one)</Feature>
+              <Feature accent>full source code + architecture docs</Feature>
+              <Feature accent>concierge server deploy (we configure it)</Feature>
+              <Feature accent>custom risk parameters + kill switches</Feature>
+              <Feature accent>internal stats dashboard (live)</Feature>
+              <Feature accent>direct support from the founder</Feature>
+              <Feature accent>early access to future products</Feature>
             </ul>
             <a
-              href="mailto:hello@coattail.me?subject=Tier II access"
+              href="#"
+              id="tier2-btn"
               className="mt-12 block bg-phosphor py-4 text-center mono text-sm uppercase tracking-[0.2em] text-ink transition-colors hover:bg-transparent hover:text-phosphor"
             >
-              Take the keys →
+              Take the keys — $99/mo →
             </a>
           </div>
         </div>
@@ -529,6 +603,7 @@ export default function Page() {
       <Hero />
       <Edge />
       <Mechanism />
+      <Roadmap />
       <Pricing />
       <Footer />
     </main>
