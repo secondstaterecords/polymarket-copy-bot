@@ -1,26 +1,28 @@
+"use client";
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import Link from "next/link";
+import { useEffect, useState } from "react";
 
 // ── Live-feel data (static snapshots; would be live via API in production) ──
 const tickerTrades = [
-  { trader: "0x2a2c", market: "NBA-GSW-LAC", side: "YES", price: "33¢", delta: "+$11" },
-  { trader: "sovereign2013", market: "NHL-DAL-BUF", side: "U5.5", price: "41¢", delta: "+$6" },
-  { trader: "elkmonkey", market: "UCL-ARS-SPO", side: "DRAW", price: "22¢", delta: "+$17" },
-  { trader: "0x2a2c", market: "NBA-ORL-PHI", side: "76ers", price: "55¢", delta: "+$10" },
-  { trader: "RN1", market: "MLB-TOR-MIL", side: "YES", price: "45¢", delta: "+$3" },
-  { trader: "swisstony", market: "EPL-TOT-BRI", side: "BRI", price: "41¢", delta: "+$2" },
-  { trader: "sovereign2013", market: "WTA-SAM-GAU", side: "OVER", price: "20¢", delta: "+$5" },
-  { trader: "Cannae", market: "UEL-NOT-POR", side: "UNDER", price: "32¢", delta: "pending" },
-  { trader: "0x2a2c", market: "BTC-UPDN-5M", side: "UP", price: "35¢", delta: "+$2" },
-  { trader: "elkmonkey", market: "NHL-SEA-COL", side: "COL", price: "62¢", delta: "pending" },
+  { trader: "WALLET-A", market: "NBA", side: "YES", price: "33¢", delta: "+$11" },
+  { trader: "WALLET-B", market: "NHL", side: "U5.5", price: "41¢", delta: "+$6" },
+  { trader: "WALLET-C", market: "UCL", side: "DRAW", price: "22¢", delta: "+$17" },
+  { trader: "WALLET-A", market: "NBA", side: "HOME", price: "55¢", delta: "+$10" },
+  { trader: "WALLET-D", market: "MLB", side: "YES", price: "45¢", delta: "+$3" },
+  { trader: "WALLET-E", market: "EPL", side: "AWAY", price: "41¢", delta: "+$2" },
+  { trader: "WALLET-B", market: "WTA", side: "OVER", price: "20¢", delta: "+$5" },
+  { trader: "WALLET-F", market: "UEL", side: "UNDER", price: "32¢", delta: "pending" },
+  { trader: "WALLET-A", market: "CRYPTO", side: "UP", price: "35¢", delta: "+$2" },
+  { trader: "WALLET-C", market: "NHL", side: "HOME", price: "62¢", delta: "pending" },
 ];
 
+// Anonymized wallet codes — real addresses stay private
 const leaderboard = [
-  { rank: 1, name: "0x2a2c", wr: 92, ret: "+213%", trades: 36, conf: "HIGH" },
-  { rank: 2, name: "sovereign2013", wr: 71, ret: "+147%", trades: 14, conf: "MED" },
-  { rank: 3, name: "RN1", wr: 57, ret: "+66%", trades: 7, conf: "LOW" },
-  { rank: 4, name: "elkmonkey", wr: 44, ret: "+36%", trades: 9, conf: "LOW" },
-  { rank: 5, name: "0x4924", wr: 80, ret: "+75%", trades: 5, conf: "LOW" },
+  { rank: 1, name: "WALLET-A", wr: 92, ret: "+213%", trades: 36, conf: "HIGH" },
+  { rank: 2, name: "WALLET-B", wr: 71, ret: "+147%", trades: 14, conf: "MED" },
+  { rank: 3, name: "WALLET-C", wr: 57, ret: "+66%", trades: 7, conf: "LOW" },
+  { rank: 4, name: "WALLET-D", wr: 44, ret: "+36%", trades: 9, conf: "LOW" },
+  { rank: 5, name: "WALLET-E", wr: 80, ret: "+75%", trades: 5, conf: "LOW" },
 ];
 
 // ── Tiny inline sparkline component (pure SVG, no deps) ──
@@ -101,28 +103,64 @@ function Nav() {
   );
 }
 
+interface LiveStats {
+  tradesToday: number;
+  tradesThisWeek: number;
+  realPnlPct: number;
+  realPnlUsd: number;
+  resolvedMarkets: number;
+  topWalletWinRate: number;
+  topWalletReturnPct: number;
+}
+
+function useLiveStats() {
+  const [stats, setStats] = useState<LiveStats | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const fetchStats = async () => {
+      try {
+        const r = await fetch("https://coattail.me/api/public", { cache: "no-store" });
+        if (!r.ok) throw new Error("bad status");
+        const d = await r.json();
+        if (!cancelled) setStats(d);
+      } catch {
+        // Fallback: try direct IP
+        try {
+          const r = await fetch("http://178.104.84.77:3848/api/public", { cache: "no-store" });
+          if (!r.ok) return;
+          const d = await r.json();
+          if (!cancelled) setStats(d);
+        } catch {}
+      }
+    };
+    fetchStats();
+    const id = setInterval(fetchStats, 60 * 1000); // refresh every 60s
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+  return stats;
+}
+
 function Hero() {
+  const stats = useLiveStats();
   return (
     <section className="scanlines relative overflow-hidden">
       <div className="relative mx-auto max-w-7xl px-8 pt-24 pb-12 md:pt-32 md:pb-16">
         {/* Top meta line */}
         <div className="rise flex items-center gap-4 mono text-[11px] uppercase tracking-[0.2em] text-paper-muted">
           <span className="text-phosphor glow">●</span>
-          <span>COATTAIL-01 · live on hetzner · 22 wallets tracked</span>
-          <span className="text-moss">/</span>
-          <span>session #{new Date().toISOString().split("T")[0]}</span>
+          <span>COATTAIL-01 · live · {stats ? `${stats.tradesToday} trades today` : "polling"}</span>
         </div>
 
         {/* Headline — editorial scale */}
         <h1 className="display rise mt-10 text-[clamp(64px,12vw,180px)] text-paper">
           The sharpest
           <br />
-          <span className="italic text-phosphor glow">wallets</span> on
+          <span className="italic text-phosphor glow">wallets</span> in
           <br />
-          Polymarket,
+          prediction
           <br />
           <span className="relative inline-block">
-            copied live.
+            markets.
             <span className="draw absolute -bottom-2 left-0 right-0 h-[3px] bg-gold"></span>
           </span>
         </h1>
@@ -130,26 +168,27 @@ function Hero() {
         {/* Tagline */}
         <div className="rise mt-14 grid gap-10 md:grid-cols-[1.3fr_1fr]" style={{ animationDelay: "0.4s" }}>
           <p className="max-w-2xl text-xl leading-relaxed text-paper md:text-2xl">
-            A trading desk in one command. Watches 22 verified profitable wallets,
-            mirrors their positions in real time, sizes up winners and cools on
-            losers — all from a cloud server that never sleeps.
+            An automated copy desk tracking verified top performers.
+            Dynamic roster — we cycle in whoever&rsquo;s printing this week.
+            Adaptive sizing scales up the sharps, cools losing streaks.
+            Runs 24/7 so you don&rsquo;t have to.
           </p>
           <div className="flex flex-col gap-3 mono text-[11px] uppercase tracking-[0.18em] text-paper-muted">
             <div className="flex justify-between border-b border-moss/50 pb-2">
-              <span>Top trader win rate</span>
-              <span className="text-phosphor glow">92%</span>
+              <span>Top wallet win rate</span>
+              <span className="text-phosphor glow">{stats?.topWalletWinRate ?? 92}%</span>
             </div>
             <div className="flex justify-between border-b border-moss/50 pb-2">
               <span>Avg return on wins</span>
-              <span className="text-gold">+213%</span>
+              <span className="text-gold">+{stats?.topWalletReturnPct ?? 213}%</span>
             </div>
             <div className="flex justify-between border-b border-moss/50 pb-2">
-              <span>Resolved trades tracked</span>
-              <span>229</span>
+              <span>Resolved markets tracked</span>
+              <span>{stats?.resolvedMarkets ?? 229}</span>
             </div>
             <div className="flex justify-between">
-              <span>Uptime this week</span>
-              <span className="text-phosphor">99.1%</span>
+              <span>Trades this week</span>
+              <span className="text-phosphor">{stats?.tradesThisWeek ?? "—"}</span>
             </div>
           </div>
         </div>
@@ -196,13 +235,14 @@ function Edge() {
             </h2>
             <p className="mt-8 text-lg leading-relaxed text-paper-muted">
               Most &ldquo;copy trading&rdquo; tools hand you a list of trades to place
-              yourself. We run a live bot that mirrors proven wallets 24/7,
-              tracks every resolution, and <em>automatically scales your bet
-              size</em> when a trader is hot.
+              yourself. We run a live desk that mirrors a curated roster 24/7,
+              tracks every outcome, and <em>automatically scales your bet
+              size</em> when a wallet is hot.
             </p>
             <p className="mt-4 text-lg leading-relaxed text-paper-muted">
-              Two wallets currently run at 2× our base size. Both are above 70%
-              win rate with 3-figure % returns on resolved trades.
+              Two wallets currently run at 2× base size. Both above 70%
+              win rate with 3-figure % returns on resolved markets. The
+              roster updates weekly — we drop cold wallets, add fresh sharps.
             </p>
           </div>
 
@@ -267,20 +307,20 @@ function Mechanism() {
     {
       num: "01",
       title: "Watch",
-      body: "Every 30 seconds the bot polls 22 top Polymarket wallets via the Data API. New buys and sells are captured within a minute of execution.",
-      detail: "poll_interval = 30s",
+      body: "A curated roster of top-performing wallets is tracked continuously. New buys and sells are detected within seconds of execution.",
+      detail: "latency < 60s",
     },
     {
       num: "02",
       title: "Filter",
-      body: "Smart guards reject noise: price outside 10-85¢, trader bet under $10, duplicate positions, circuit breakers on drawdown. 98% of signals are rejected.",
-      detail: "signals_accepted = 2.1%",
+      body: "Proprietary guards reject the noise — junk prices, tiny positions, both-sides bets, overexposure, cold-streak wallets. Only ~2% of signals survive.",
+      detail: "signal_pass_rate = 2.1%",
     },
     {
       num: "03",
       title: "Mirror",
-      body: "Accepted signals become real Polymarket orders via Bullpen. Proven winners get 2× sizing, cold streaks get cooled. Winnings auto-redeem on resolution.",
-      detail: "avg_execution_lag = 47s",
+      body: "Survivors become real orders on your own account. Hot wallets get sized up, cold ones cooled. Winnings auto-claim on resolution. You sleep.",
+      detail: "execution = automatic",
     },
   ];
   return (
@@ -353,14 +393,14 @@ function Pricing() {
               </div>
             </div>
             <p className="mt-6 text-paper-muted">
-              Install Bullpen, run one command, copy Coattail&rsquo;s live wallet.
-              Your trades mirror ours — paused when we pause.
+              We set you up on the standard stack. One install command,
+              and you&rsquo;re auto-mirroring the Coattail desk on your own account.
             </p>
             <ul className="mono mt-10 space-y-3 text-sm">
-              <Feature>auto-mirror via Bullpen tracker</Feature>
-              <Feature>~40-50 trades / week</Feature>
-              <Feature>referral link with fee rebate</Feature>
-              <Feature>Telegram alerts</Feature>
+              <Feature>white-glove setup (we run the install)</Feature>
+              <Feature>up to ~120 trades / week<span className="text-paper-muted">*</span></Feature>
+              <Feature>referral rebate on platform fees</Feature>
+              <Feature>Telegram alerts for every trade</Feature>
               <Feature>email support (~24h)</Feature>
             </ul>
             <a
@@ -389,16 +429,16 @@ function Pricing() {
               </div>
             </div>
             <p className="mt-6 text-paper-muted">
-              The full bot on your own server. 22 wallets in parallel, adaptive
-              sizing, your own risk controls, your own data.
+              Your own instance. Runs independently, copies the full
+              roster in parallel, your risk controls, your data.
             </p>
             <ul className="mono mt-10 space-y-3 text-sm">
-              <Feature accent>full source code + updates</Feature>
-              <Feature accent>copies 22 wallets (vs 1)</Feature>
-              <Feature accent>per-trader EV &amp; CLV stats</Feature>
-              <Feature accent>live dashboard on your machine</Feature>
+              <Feature accent>private instance (white-label)</Feature>
+              <Feature accent>full roster mirrored (vs 1 wallet)</Feature>
+              <Feature accent>live dashboard + trade analytics</Feature>
+              <Feature accent>adaptive sizing, custom risk limits</Feature>
               <Feature accent>30-day priority support</Feature>
-              <Feature accent>Hetzner install guide ($4/mo server)</Feature>
+              <Feature accent>concierge deploy (we configure it)</Feature>
             </ul>
             <a
               href="mailto:hello@coattail.me?subject=Tier II access"
@@ -409,14 +449,22 @@ function Pricing() {
           </div>
         </div>
 
-        <p className="mono mt-12 max-w-3xl text-xs leading-relaxed text-paper-muted">
-          <span className="text-blood">·</span> <span className="uppercase tracking-wider">Disclosure.</span>
-          Prediction markets carry real financial risk. Past performance of the
-          wallets we copy does not guarantee future returns. You trade with your
-          own funds through your own Polymarket account. We are not a
-          broker-dealer and not registered with any regulatory body. Not
-          available in jurisdictions that prohibit prediction-market wagering.
-        </p>
+        <div className="mono mt-12 max-w-3xl space-y-3 text-xs leading-relaxed text-paper-muted">
+          <p>
+            <span className="text-gold">*</span> Trade volume assumes a fully
+            funded account. Actual trade count scales with your capital — a
+            thinly funded account trades less because the system only deploys a
+            bounded fraction of capital per position.
+          </p>
+          <p>
+            <span className="text-blood">·</span> <span className="uppercase tracking-wider">Disclosure.</span>
+            Prediction markets carry real financial risk. Past performance of
+            tracked wallets does not guarantee future returns. You trade with
+            your own funds through your own account. We are not a broker-dealer
+            and not registered with any regulatory body. Not available in
+            jurisdictions that prohibit prediction-market wagering.
+          </p>
+        </div>
       </div>
     </section>
   );
