@@ -575,6 +575,7 @@ function Footer() {
               <li><a href="#edge" className="hover:text-phosphor">the edge</a></li>
               <li><a href="#mechanism" className="hover:text-phosphor">mechanism</a></li>
               <li><a href="#pricing" className="hover:text-phosphor">access</a></li>
+              <li><a href="/terms" className="hover:text-phosphor">terms of service</a></li>
             </ul>
           </div>
           <div>
