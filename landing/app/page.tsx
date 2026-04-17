@@ -474,8 +474,9 @@ function Pricing() {
               <Feature>referral rebate on platform fees</Feature>
             </ul>
             <a
-              href="#"
-              id="tier1-btn"
+              href="https://buy.stripe.com/eVq5kC5iw7UD1RRbJY0Jq08"
+              target="_blank"
+              rel="noopener noreferrer"
               className="mt-12 block border border-moss/60 py-4 text-center mono text-sm uppercase tracking-[0.2em] text-paper transition-colors hover:border-paper"
             >
               Start mirroring — $9/mo →
@@ -514,8 +515,9 @@ function Pricing() {
               <Feature accent>early access to future products</Feature>
             </ul>
             <a
-              href="#"
-              id="tier2-btn"
+              href="https://buy.stripe.com/5kQbJ07qE7UD7cb29o0Jq09"
+              target="_blank"
+              rel="noopener noreferrer"
               className="mt-12 block bg-phosphor py-4 text-center mono text-sm uppercase tracking-[0.2em] text-ink transition-colors hover:bg-transparent hover:text-phosphor"
             >
               Take the keys — $99/mo →
