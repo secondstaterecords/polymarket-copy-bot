@@ -59,33 +59,75 @@ export default function Welcome() {
           <div>
             <div className="flex items-baseline gap-3 mb-4">
               <span className="mono text-3xl text-moss tabular-nums">02</span>
-              <h3 className="display text-xl sm:text-2xl text-paper">Deposit funds</h3>
+              <h3 className="display text-xl sm:text-2xl text-paper">Fund your Predictions Balance</h3>
             </div>
-            <p className="text-paper-muted ml-12">
-              Go to <strong className="text-paper">Wallet</strong> in the app and deposit USDC.
-              You can buy USDC directly with a debit card.
-            </p>
-            <div className="ml-12 mt-4 border border-moss/40 p-4 sm:p-5">
-              <div className="mono text-[10px] uppercase tracking-[0.2em] text-paper-muted mb-3">
-                Recommended starting amounts
-              </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="border border-moss/40 py-3">
-                  <div className="mono text-lg text-paper">$50</div>
-                  <div className="mono text-[9px] text-paper-muted mt-1">minimum</div>
-                </div>
-                <div className="border border-phosphor/50 py-3 bg-phosphor/5">
-                  <div className="mono text-lg text-phosphor">$200</div>
-                  <div className="mono text-[9px] text-phosphor/70 mt-1">recommended</div>
-                </div>
-                <div className="border border-gold/40 py-3">
-                  <div className="mono text-lg text-gold">$1000+</div>
-                  <div className="mono text-[9px] text-paper-muted mt-1">optimal</div>
-                </div>
-              </div>
-              <p className="mono text-[9px] text-paper-muted mt-3">
-                More capital = more trades captured. The system only deploys a safe fraction per position.
+            <div className="ml-12 space-y-5">
+              <p className="text-paper-muted">
+                Go to <strong className="text-paper">Wallet</strong> → <strong className="text-paper">Deposit</strong> → choose a funding method below.
               </p>
+
+              <div className="border border-moss/40 divide-y divide-moss/40">
+                <div className="p-4">
+                  <div className="mono text-[10px] uppercase tracking-[0.2em] text-paper-muted mb-3">
+                    Funding options — no crypto knowledge needed
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <span className="text-phosphor mt-1 shrink-0">⚡</span>
+                      <div>
+                        <div className="text-paper font-medium">Predictions Balance (fastest)</div>
+                        <div className="text-paper-muted text-sm">Deposit directly with debit card or Apple Pay. Instant. No crypto needed.</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span className="text-gold mt-1 shrink-0">🏦</span>
+                      <div>
+                        <div className="text-paper font-medium">Add Cash — Bank transfer</div>
+                        <div className="text-paper-muted text-sm">ACH (1-3 days) or wire (same day) from your bank. Highest limits. You&rsquo;ll get routing + account numbers to send to.</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span className="text-paper-muted mt-1 shrink-0">₿</span>
+                      <div>
+                        <div className="text-paper font-medium">Already have crypto?</div>
+                        <div className="text-paper-muted text-sm">Send USDC on Polygon network directly to your wallet address in the app.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 bg-phosphor/5">
+                  <div className="mono text-[10px] uppercase tracking-[0.2em] text-phosphor/70 mb-1">
+                    Important
+                  </div>
+                  <p className="text-sm text-paper">
+                    Make sure your funds go to <strong className="text-phosphor">Predictions Balance</strong> —
+                    not Perps, not Memes. That&rsquo;s where copy trading executes.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border border-moss/40 p-4">
+                <div className="mono text-[10px] uppercase tracking-[0.2em] text-paper-muted mb-3">
+                  How much to deposit
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="border border-moss/40 py-3 px-2">
+                    <div className="mono text-lg text-paper">$50</div>
+                    <div className="mono text-[9px] text-paper-muted mt-1">minimum</div>
+                  </div>
+                  <div className="border border-phosphor/50 py-3 px-2 bg-phosphor/5">
+                    <div className="mono text-lg text-phosphor">$200</div>
+                    <div className="mono text-[9px] text-phosphor/70 mt-1">recommended</div>
+                  </div>
+                  <div className="border border-gold/40 py-3 px-2">
+                    <div className="mono text-lg text-gold">$1000+</div>
+                    <div className="mono text-[9px] text-paper-muted mt-1">optimal</div>
+                  </div>
+                </div>
+                <p className="mono text-[9px] text-paper-muted mt-3">
+                  Your trades scale with your balance (2% per trade). More capital = bigger positions = more potential returns.
+                </p>
+              </div>
             </div>
           </div>
 
