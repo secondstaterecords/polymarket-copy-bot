@@ -61,9 +61,8 @@ export function shouldCopyTrade(signal: TradeSignal, config: BotConfig, state: F
   // winning sharp's position is usually +EV. Per-market cap still limits size.
   if (filters.dedupAcrossTraders) {
     const marketKey = `${signal.slug}:${signal.outcome}`;
-    const evForDedup = state.traderEv?.get(signal.traderName);
-    const canStack = evForDedup && evForDedup.confidence !== "low" && evForDedup.expectedValue > 0.3;
-    if (state.activeMarkets.has(marketKey) && !canStack)
+    // Dedup applies to ALL traders — spread across different markets, don't stack
+    if (state.activeMarkets.has(marketKey))
       return { pass: false, reason: `dedup: already hold position on ${signal.slug}:${signal.outcome}` };
   }
 
