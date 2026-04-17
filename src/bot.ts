@@ -199,75 +199,85 @@ function processSignal(signal: TradeSignal): void {
 }
 
 function handleBuy(signal: TradeSignal): void {
-  // Adaptive sizing: multiply base trade amount by trader's size multiplier
+  // Split-buy: instead of 1 big trade, do N trades at base amount.
+  // This way copy-trade customers naturally scale (they mirror each trade).
+  // 3x multiplier = 3 separate $5 buys, not 1x $15.
   const baseAmount = config.risk.tradeAmountUsd;
   const multiplier = getTraderSizeMultiplier(db, signal.traderName);
-  const amount = Math.round(baseAmount * multiplier * 100) / 100;
+  const numBuys = Math.max(1, Math.round(multiplier));
+  const amount = baseAmount; // Always $5 base — volume scales, not size
   const paperShares = signal.price > 0 ? amount / signal.price : 0;
 
   if (!config.paperMode) {
-    // Check balance before attempting buy — avoid spamming failed trades
-    if (usdcBalance < amount + 1) {
-      log("SKIP", `${signal.traderName} ${signal.slug}:${signal.outcome} — insufficient balance ($${usdcBalance.toFixed(2)} < $${amount})`);
-      // Still record as paper trade so we can track what we would have done
-      log("PAPER", `${signal.traderName} BUY ${signal.slug}:${signal.outcome} $${amount} @ ${signal.price} (no cash)`);
-      insertTrade(db, {
-        timestamp: new Date().toISOString(), trader: signal.traderName,
-        traderAddress: signal.traderAddress, action: "BUY", market: signal.slug,
-        slug: signal.slug, outcome: signal.outcome, traderAmount: signal.traderAmount,
-        ourAmount: 0, entryPrice: signal.price, paperShares,
-        status: "paper", isReal: false,
-      });
-      return;
-    }
-    // Attempt real buy
-    const result = buyMarket(signal.slug, signal.outcome, amount);
-    if (result.success) {
-      log("BUY", `${signal.traderName} ${signal.slug}:${signal.outcome} $${amount} @ ${signal.price}`);
-      insertTrade(db, {
-        timestamp: new Date().toISOString(),
-        trader: signal.traderName,
-        traderAddress: signal.traderAddress,
-        action: "BUY",
-        market: signal.slug,
-        slug: signal.slug,
-        outcome: signal.outcome,
-        traderAmount: signal.traderAmount,
-        ourAmount: amount,
-        entryPrice: signal.price,
-        paperShares,
-        status: "success",
-        result: result.stdout,
-        isReal: true,
-      });
-      alertTrade("BUY", signal.traderName, signal.slug, signal.outcome, signal.price, amount, "REAL");
-      // Update balance after successful buy
-      usdcBalance = Math.max(0, usdcBalance - amount);
-      // Record analytics for trader scoring
-      try {
-        const analyticsPath = join(config.dataDir, "trader-analytics.json");
-        let analytics: Record<string, any> = {};
-        if (existsSync(analyticsPath)) analytics = JSON.parse(readFileSync(analyticsPath, "utf-8"));
-        if (!analytics[signal.traderName]) analytics[signal.traderName] = { totalTrades: 0, totalSpent: 0, moonshots: 0, avgEntryPrice: 0, lastSeen: "" };
-        const r = analytics[signal.traderName];
-        r.avgEntryPrice = (r.avgEntryPrice * r.totalTrades + signal.price) / (r.totalTrades + 1);
-        r.totalTrades++; r.totalSpent += amount;
-        if (signal.price < 0.20) r.moonshots++;
-        r.lastSeen = new Date().toISOString();
-        writeFileSync(analyticsPath, JSON.stringify(analytics, null, 2));
-      } catch {}
-      seenPositions.add(`${signal.traderName}:${signal.slug}:${signal.outcome}`);
-      saveSeenTrades();
-      return;
-    }
-    log("FAIL", `Real buy failed for ${signal.slug}:${signal.outcome}: ${result.error}`);
-    insertTrade(db, {
-      timestamp: new Date().toISOString(),
-      trader: signal.traderName, traderAddress: signal.traderAddress,
-      action: "BUY", market: signal.slug, slug: signal.slug, outcome: signal.outcome,
-      traderAmount: signal.traderAmount, ourAmount: 0, entryPrice: signal.price,
-      paperShares: 0, status: "failed", error: result.error || "real buy failed", isReal: true,
-    });
+    // Split-buy loop: place numBuys separate trades at base amount
+    // so copy-trade customers naturally scale with trader quality
+    for (let buyIdx = 0; buyIdx < numBuys; buyIdx++) {
+      // Check balance before each buy
+      if (usdcBalance < amount + 1) {
+        if (buyIdx === 0) {
+          log("SKIP", `${signal.traderName} ${signal.slug}:${signal.outcome} — insufficient balance ($${usdcBalance.toFixed(2)} < $${amount})`);
+          log("PAPER", `${signal.traderName} BUY ${signal.slug}:${signal.outcome} $${amount} @ ${signal.price} (no cash)`);
+          insertTrade(db, {
+            timestamp: new Date().toISOString(), trader: signal.traderName,
+            traderAddress: signal.traderAddress, action: "BUY", market: signal.slug,
+            slug: signal.slug, outcome: signal.outcome, traderAmount: signal.traderAmount,
+            ourAmount: 0, entryPrice: signal.price, paperShares,
+            status: "paper", isReal: false,
+          });
+        }
+        break; // Stop loop — no cash for more buys
+      }
+      // Attempt real buy
+      const result = buyMarket(signal.slug, signal.outcome, amount);
+      if (result.success) {
+        log("BUY", `${signal.traderName} ${signal.slug}:${signal.outcome} $${amount} @ ${signal.price} (${buyIdx + 1}/${numBuys})`);
+        insertTrade(db, {
+          timestamp: new Date().toISOString(),
+          trader: signal.traderName,
+          traderAddress: signal.traderAddress,
+          action: "BUY",
+          market: signal.slug,
+          slug: signal.slug,
+          outcome: signal.outcome,
+          traderAmount: signal.traderAmount,
+          ourAmount: amount,
+          entryPrice: signal.price,
+          paperShares,
+          status: "success",
+          result: result.stdout,
+          isReal: true,
+        });
+        alertTrade("BUY", signal.traderName, signal.slug, signal.outcome, signal.price, amount, `REAL ${buyIdx + 1}/${numBuys}`);
+        // Update balance after successful buy
+        usdcBalance = Math.max(0, usdcBalance - amount);
+      } else {
+        log("FAIL", `Real buy failed for ${signal.slug}:${signal.outcome} (${buyIdx + 1}/${numBuys}): ${result.error}`);
+        insertTrade(db, {
+          timestamp: new Date().toISOString(),
+          trader: signal.traderName, traderAddress: signal.traderAddress,
+          action: "BUY", market: signal.slug, slug: signal.slug, outcome: signal.outcome,
+          traderAmount: signal.traderAmount, ourAmount: 0, entryPrice: signal.price,
+          paperShares: 0, status: "failed", error: result.error || "real buy failed", isReal: true,
+        });
+        break; // Stop loop on failure
+      }
+    } // end split-buy loop
+
+    // Record analytics once per signal (not per split-buy)
+    try {
+      const analyticsPath = join(config.dataDir, "trader-analytics.json");
+      let analytics: Record<string, any> = {};
+      if (existsSync(analyticsPath)) analytics = JSON.parse(readFileSync(analyticsPath, "utf-8"));
+      if (!analytics[signal.traderName]) analytics[signal.traderName] = { totalTrades: 0, totalSpent: 0, moonshots: 0, avgEntryPrice: 0, lastSeen: "" };
+      const r = analytics[signal.traderName];
+      r.avgEntryPrice = (r.avgEntryPrice * r.totalTrades + signal.price) / (r.totalTrades + 1);
+      r.totalTrades++; r.totalSpent += amount * numBuys;
+      if (signal.price < 0.20) r.moonshots++;
+      r.lastSeen = new Date().toISOString();
+      writeFileSync(analyticsPath, JSON.stringify(analytics, null, 2));
+    } catch {}
+    seenPositions.add(`${signal.traderName}:${signal.slug}:${signal.outcome}`);
+    saveSeenTrades();
     return;
   }
 
