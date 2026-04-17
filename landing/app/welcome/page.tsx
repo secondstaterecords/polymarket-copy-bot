@@ -228,12 +228,18 @@ export default function Welcome() {
             Trades mirror automatically 24/7. Check back in the{" "}
             <strong className="text-paper">Copied Trades</strong> tab to see activity.
           </p>
-          <div className="mt-8 space-y-2">
+          <div className="mt-8 space-y-3">
             <p className="mono text-[10px] uppercase tracking-[0.15em] text-paper-muted">
-              Questions? We respond fast:
+              Stuck on any step? I&rsquo;ll walk you through it personally:
             </p>
-            <a href="mailto:jarvismaxmorrish@gmail.com?subject=Coattail%20Help" className="mono text-sm text-phosphor hover:underline block">
-              jarvismaxmorrish@gmail.com
+            <a href="sms:4349969283" className="mono text-lg text-phosphor hover:underline block">
+              (434) 996-9283
+            </a>
+            <p className="mono text-[10px] text-paper-muted">
+              Text anytime — I usually respond within minutes.
+            </p>
+            <a href="mailto:jarvismaxmorrish@gmail.com?subject=Coattail%20Help" className="mono text-xs text-paper-muted hover:text-paper block mt-2">
+              or email: jarvismaxmorrish@gmail.com
             </a>
           </div>
           <p className="mono text-[9px] text-paper-muted mt-8">
