@@ -45,7 +45,7 @@ export function shouldCopyTrade(signal: TradeSignal, config: BotConfig, state: F
     ).length;
     // Trader tiers: elite bypass entirely, proven get 3x, rest get normal limit
     const ev = state.traderEv?.get(signal.traderName);
-    const isElite = ev && ev.confidence !== "low" && ev.expectedValue > 1.0;
+    const isElite = ev && ev.confidence !== "low" && ev.expectedValue > 0.8;
     const isProvenWinner = ev && ev.confidence !== "low" && ev.expectedValue > 0.1;
     if (!isElite) {
       const limit = isProvenWinner ? filters.maxTraderSignalsPerHour * 3 : filters.maxTraderSignalsPerHour;

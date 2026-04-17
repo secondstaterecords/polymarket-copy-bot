@@ -107,7 +107,7 @@ export function computeTraderStats(db: Database.Database, trader: string): Trade
   // Medium/High + negative EV: scale down to 0.5 (or avoid entirely)
   let sizeMultiplier = 1.0;
   if (confidence !== "low") {
-    if (expectedValue > 1.0 && winRate >= 0.80) sizeMultiplier = 3.0;  // Elite (0x2a2c tier)
+    if (expectedValue > 1.0) sizeMultiplier = 3.0;  // Elite — EV already factors in WR
     else if (expectedValue > 0.3) sizeMultiplier = 2.0;
     else if (expectedValue > 0.1) sizeMultiplier = 1.5;
     else if (expectedValue > 0) sizeMultiplier = 1.2;
