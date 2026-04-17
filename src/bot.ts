@@ -465,7 +465,31 @@ function refreshPnl(): void {
 
     // ── Update total capital (balance + positions value) ─────────
     const activePnl = config.paperMode ? paperPnl : realPnl;
-    const positionsValue = activePnl.invested + activePnl.pnl;
+    // For paper mode, use DB-reconstructed value. For live mode, use Bullpen's
+    // actual positions API (DB-reconstruction double-counts resolved/sold markets).
+    let positionsValue = activePnl.invested + activePnl.pnl;
+    let liveInvested = 0;
+    let liveUnrealizedPnl = 0;
+    if (!config.paperMode) {
+      try {
+        const livePositions = getPositions();
+        const liveValue = livePositions.reduce((sum: number, p: any) =>
+          sum + parseFloat(p.current_value || p.value || "0"), 0);
+        liveInvested = livePositions.reduce((sum: number, p: any) =>
+          sum + parseFloat(p.invested_usd || "0"), 0);
+        liveUnrealizedPnl = livePositions.reduce((sum: number, p: any) =>
+          sum + parseFloat(p.unrealized_pnl || "0"), 0);
+        if (!isNaN(liveValue) && liveValue > 0) {
+          positionsValue = liveValue;
+          // Override realPnl with live truth
+          realPnl.pnl = Math.round(liveUnrealizedPnl * 100) / 100;
+          realPnl.invested = liveInvested;
+          realPnl.returnPct = liveInvested > 0
+            ? Math.round((liveUnrealizedPnl / liveInvested) * 10000) / 100
+            : 0;
+        }
+      } catch {}
+    }
     if (!config.paperMode) {
       const prevBalance = usdcBalance;
       const bal = getBalance();
