@@ -20,3 +20,7 @@ trader-analytics.json
 credentials.json
 *.pem
 *.key
+
+# Local Netlify folder
+.netlify
+bullpen-session.json
