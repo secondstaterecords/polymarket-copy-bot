@@ -81,8 +81,9 @@ async function approveCode(code: string): Promise<boolean> {
     const page = await context.newPage();
 
     log(`Navigating to device auth page...`);
-    await page.goto("https://app.bullpen.fi/device", { timeout: 30000 });
-    await page.waitForTimeout(3000);
+    await page.goto("https://app.bullpen.fi/device", { timeout: 60000, waitUntil: "networkidle" });
+    // Wait for Vercel checkpoint + app hydration
+    await page.waitForTimeout(10000);
 
     // Find the code input field and enter the code
     // The device page has an input for the 8-char code
