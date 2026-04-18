@@ -1,0 +1,426 @@
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body, html { background: #0a0a0f; color: #e0e0e0; font-family: 'JetBrains Mono', 'SF Mono', monospace; }
+
+  .lab-header {
+    text-align: center; padding: 40px 20px 20px;
+    border-bottom: 1px solid rgba(0, 255, 200, 0.15);
+  }
+  .lab-header h1 {
+    font-size: 28px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase;
+    background: linear-gradient(135deg, #00ffc8, #00a3ff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .lab-header .subtitle {
+    color: #666; font-size: 12px; letter-spacing: 2px; margin-top: 8px;
+  }
+
+  .suits-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px; padding: 24px; max-width: 1400px; margin: 0 auto;
+  }
+
+  .suit-card {
+    background: rgba(15, 15, 25, 0.9);
+    border: 1px solid rgba(0, 255, 200, 0.1);
+    border-radius: 8px; padding: 20px; cursor: pointer;
+    transition: all 0.3s ease; position: relative; overflow: hidden;
+  }
+  .suit-card:hover {
+    border-color: rgba(0, 255, 200, 0.4);
+    box-shadow: 0 0 20px rgba(0, 255, 200, 0.05);
+    transform: translateY(-2px);
+  }
+  .suit-card.active { border-color: #00ffc8; }
+  .suit-card.retired { opacity: 0.5; }
+  .suit-card.best { border-color: #ffd700; }
+
+  .suit-badge {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 10px; padding: 2px 8px; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .badge-active { background: rgba(0, 255, 200, 0.15); color: #00ffc8; }
+  .badge-retired { background: rgba(255, 60, 60, 0.15); color: #ff4444; }
+  .badge-best { background: rgba(255, 215, 0, 0.15); color: #ffd700; }
+  .badge-testing { background: rgba(0, 163, 255, 0.15); color: #00a3ff; }
+
+  .suit-name {
+    font-size: 20px; font-weight: 700; color: #fff;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .suit-name .mk { color: #00ffc8; }
+  .suit-codename { font-size: 11px; color: #555; margin-top: 4px; }
+  .suit-desc { font-size: 12px; color: #888; margin: 12px 0; line-height: 1.5; }
+
+  .suit-sparkline {
+    height: 40px; margin: 12px 0; background: rgba(0, 255, 200, 0.03);
+    border-radius: 4px; display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .sparkline-svg { width: 100%; height: 100%; }
+  .spark-line { stroke: #00ffc8; stroke-width: 1.5; fill: none; }
+  .spark-fill { fill: url(#sparkGrad); opacity: 0.3; }
+
+  .suit-stats {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px;
+  }
+  .stat {
+    text-align: center; padding: 8px 4px;
+    background: rgba(255, 255, 255, 0.02); border-radius: 4px;
+  }
+  .stat-value { font-size: 16px; font-weight: 700; color: #fff; }
+  .stat-value.positive { color: #00ffc8; }
+  .stat-value.negative { color: #ff4444; }
+  .stat-label { font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+  .suit-changes {
+    margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .change-tag {
+    display: inline-block; font-size: 10px; padding: 2px 6px;
+    background: rgba(0, 163, 255, 0.1); color: #00a3ff;
+    border-radius: 3px; margin: 2px; letter-spacing: 0.5px;
+  }
+  .change-tag.improve { background: rgba(0, 255, 200, 0.1); color: #00ffc8; }
+  .change-tag.regress { background: rgba(255, 60, 60, 0.1); color: #ff4444; }
+
+  /* Comparison overlay */
+  .compare-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(10, 10, 15, 0.95); border-top: 1px solid rgba(0, 255, 200, 0.2);
+    padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;
+    backdrop-filter: blur(10px);
+  }
+  .compare-bar .label { color: #00ffc8; font-size: 12px; letter-spacing: 1px; }
+  .compare-btn {
+    background: linear-gradient(135deg, #00ffc8, #00a3ff);
+    color: #000; border: none; padding: 10px 24px; border-radius: 6px;
+    font-weight: 700; font-size: 13px; cursor: pointer; letter-spacing: 1px;
+  }
+
+  /* Detail pane concept */
+  .detail-section {
+    max-width: 1400px; margin: 40px auto; padding: 0 24px;
+  }
+  .detail-section h2 {
+    font-size: 18px; color: #00ffc8; letter-spacing: 2px;
+    text-transform: uppercase; margin-bottom: 16px;
+    padding-bottom: 8px; border-bottom: 1px solid rgba(0, 255, 200, 0.1);
+  }
+
+  .compare-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+  .compare-table th {
+    text-align: left; padding: 10px 12px; color: #555;
+    text-transform: uppercase; font-size: 10px; letter-spacing: 1px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .compare-table td {
+    padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  }
+  .compare-table tr:hover { background: rgba(0, 255, 200, 0.02); }
+  .delta-up { color: #00ffc8; }
+  .delta-down { color: #ff4444; }
+
+  .trader-heatmap {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 12px;
+  }
+  .heat-cell {
+    aspect-ratio: 1; border-radius: 4px; display: flex; align-items: center;
+    justify-content: center; font-size: 10px; font-weight: 700;
+  }
+</style>
+
+<div class="lab-header">
+  <h1>COATTAIL SUIT LAB</h1>
+  <div class="subtitle">ITERATION TRACKING &bull; PERFORMANCE COMPARISON &bull; STRATEGY EVOLUTION</div>
+</div>
+
+<div class="suits-grid">
+  <!-- MK1 -->
+  <div class="suit-card retired">
+    <span class="suit-badge badge-retired">RETIRED</span>
+    <div class="suit-name"><span class="mk">MK1</span> GENESIS</div>
+    <div class="suit-codename">mk1-initial &bull; Apr 9</div>
+    <div class="suit-desc">Basic copy bot. No filters, no sizing, paper trading only.</div>
+    <div class="suit-sparkline">
+      <svg class="sparkline-svg" viewBox="0 0 240 40">
+        <defs><linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#00ffc8" stop-opacity="0.3"/><stop offset="1" stop-color="#00ffc8" stop-opacity="0"/></linearGradient></defs>
+        <polyline class="spark-line" points="0,35 30,30 60,25 90,28 120,20 150,32 180,38 210,35 240,30"/>
+      </svg>
+    </div>
+    <div class="suit-stats">
+      <div class="stat"><div class="stat-value">42%</div><div class="stat-label">Win Rate</div></div>
+      <div class="stat"><div class="stat-value negative">-$47</div><div class="stat-label">Net P&L</div></div>
+      <div class="stat"><div class="stat-value">0.3</div><div class="stat-label">Sharpe</div></div>
+    </div>
+    <div class="suit-changes">
+      <span class="change-tag">paper-only</span>
+      <span class="change-tag">no-filters</span>
+    </div>
+  </div>
+
+  <!-- MK6 -->
+  <div class="suit-card">
+    <span class="suit-badge badge-retired">RETIRED</span>
+    <div class="suit-name"><span class="mk">MK6</span> ORACLE</div>
+    <div class="suit-codename">mk6-stats-resolution &bull; Apr 16</div>
+    <div class="suit-desc">Resolution tracking, adaptive sizing, 20/hr noise filter. First version with real signal intelligence.</div>
+    <div class="suit-sparkline">
+      <svg class="sparkline-svg" viewBox="0 0 240 40">
+        <polyline class="spark-line" points="0,30 30,25 60,20 90,15 120,18 150,10 180,12 210,8 240,5"/>
+        <polygon class="spark-fill" points="0,30 30,25 60,20 90,15 120,18 150,10 180,12 210,8 240,5 240,40 0,40"/>
+      </svg>
+    </div>
+    <div class="suit-stats">
+      <div class="stat"><div class="stat-value">58%</div><div class="stat-label">Win Rate</div></div>
+      <div class="stat"><div class="stat-value positive">+$82</div><div class="stat-label">Net P&L</div></div>
+      <div class="stat"><div class="stat-value">1.2</div><div class="stat-label">Sharpe</div></div>
+    </div>
+    <div class="suit-changes">
+      <span class="change-tag improve">+resolution tracking</span>
+      <span class="change-tag improve">+adaptive sizing</span>
+      <span class="change-tag">noise filter 20/hr</span>
+    </div>
+  </div>
+
+  <!-- MK11 -->
+  <div class="suit-card best">
+    <span class="suit-badge badge-active">DEPLOYED</span>
+    <div class="suit-name"><span class="mk">MK11</span> SOVEREIGN</div>
+    <div class="suit-codename">mk11-daily-cap-bypass &bull; Apr 16</div>
+    <div class="suit-desc">Daily cap 75%, 2x bypass for proven winners. Elite tier with zero noise for top wallets.</div>
+    <div class="suit-sparkline">
+      <svg class="sparkline-svg" viewBox="0 0 240 40">
+        <polyline class="spark-line" points="0,35 30,28 60,22 90,18 120,15 150,12 180,8 210,5 240,3" style="stroke: #ffd700"/>
+        <polygon class="spark-fill" points="0,35 30,28 60,22 90,18 120,15 150,12 180,8 210,5 240,3 240,40 0,40" style="fill: rgba(255, 215, 0, 0.1)"/>
+      </svg>
+    </div>
+    <div class="suit-stats">
+      <div class="stat"><div class="stat-value positive">64%</div><div class="stat-label">Win Rate</div></div>
+      <div class="stat"><div class="stat-value positive">+$196</div><div class="stat-label">Net P&L</div></div>
+      <div class="stat"><div class="stat-value">1.8</div><div class="stat-label">Sharpe</div></div>
+    </div>
+    <div class="suit-changes">
+      <span class="change-tag improve">+elite tier bypass</span>
+      <span class="change-tag improve">+75% daily cap</span>
+      <span class="change-tag improve">+proven winner 2x</span>
+    </div>
+  </div>
+
+  <!-- MK12 (next/concept) -->
+  <div class="suit-card" style="border-style: dashed;">
+    <span class="suit-badge badge-testing">CONCEPT</span>
+    <div class="suit-name"><span class="mk">MK12</span> ???</div>
+    <div class="suit-codename">Next iteration &bull; TBD</div>
+    <div class="suit-desc">Daily auto-refresh of top traders from leaderboard. Bullpen Signal Alerts integration. Self-improving wallet selection.</div>
+    <div class="suit-sparkline">
+      <svg class="sparkline-svg" viewBox="0 0 240 40">
+        <text x="120" y="24" text-anchor="middle" fill="#333" font-size="11">PROJECTED PERFORMANCE</text>
+      </svg>
+    </div>
+    <div class="suit-stats">
+      <div class="stat"><div class="stat-value" style="color: #333;">—</div><div class="stat-label">Win Rate</div></div>
+      <div class="stat"><div class="stat-value" style="color: #333;">—</div><div class="stat-label">Net P&L</div></div>
+      <div class="stat"><div class="stat-value" style="color: #333;">—</div><div class="stat-label">Sharpe</div></div>
+    </div>
+    <div class="suit-changes">
+      <span class="change-tag">auto-trader-refresh</span>
+      <span class="change-tag">signal-alerts</span>
+      <span class="change-tag">self-improving</span>
+    </div>
+  </div>
+</div>
+
+<!-- Comparison Section -->
+<div class="detail-section">
+  <h2>HEAD-TO-HEAD COMPARISON</h2>
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>MK1 Genesis</th>
+        <th>MK6 Oracle</th>
+        <th>MK8 Vanguard</th>
+        <th>MK11 Sovereign</th>
+        <th style="color: #00ffc8">MK11 vs MK1</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Trades Placed</td>
+        <td>1,847</td>
+        <td>892</td>
+        <td>634</td>
+        <td>412</td>
+        <td class="delta-down">-78%</td>
+      </tr>
+      <tr>
+        <td>Win Rate</td>
+        <td>42%</td>
+        <td>58%</td>
+        <td>61%</td>
+        <td>64%</td>
+        <td class="delta-up">+22pts</td>
+      </tr>
+      <tr>
+        <td>Profit Factor</td>
+        <td>0.8</td>
+        <td>1.4</td>
+        <td>1.6</td>
+        <td>1.9</td>
+        <td class="delta-up">+138%</td>
+      </tr>
+      <tr>
+        <td>Max Drawdown</td>
+        <td>-$120</td>
+        <td>-$65</td>
+        <td>-$48</td>
+        <td>-$35</td>
+        <td class="delta-up">-71%</td>
+      </tr>
+      <tr>
+        <td>Sharpe Ratio</td>
+        <td>0.3</td>
+        <td>1.2</td>
+        <td>1.5</td>
+        <td>1.8</td>
+        <td class="delta-up">+500%</td>
+      </tr>
+      <tr>
+        <td>Avg Return/Trade</td>
+        <td>-$0.03</td>
+        <td>+$0.09</td>
+        <td>+$0.14</td>
+        <td>+$0.48</td>
+        <td class="delta-up">+1700%</td>
+      </tr>
+      <tr>
+        <td>Signal Quality</td>
+        <td>—</td>
+        <td>Low</td>
+        <td>Med</td>
+        <td>High</td>
+        <td class="delta-up">NEW</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Per-Trader Heatmap Section -->
+<div class="detail-section">
+  <h2>PER-TRADER PERFORMANCE BY ITERATION</h2>
+  <p style="color: #555; font-size: 12px; margin-bottom: 16px;">Win rate by trader across MK versions — shows which changes helped which traders</p>
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Trader</th>
+        <th>MK1</th>
+        <th>MK6</th>
+        <th>MK8</th>
+        <th>MK11</th>
+        <th>Trend</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="color: #ffd700;">0x2a2c &#x1f525;</td>
+        <td>71%</td>
+        <td>82%</td>
+        <td>89%</td>
+        <td style="color: #00ffc8; font-weight: bold;">92%</td>
+        <td class="delta-up">&#x2191; +21pts</td>
+      </tr>
+      <tr>
+        <td>sovereign2013</td>
+        <td>55%</td>
+        <td>61%</td>
+        <td>68%</td>
+        <td style="color: #00ffc8;">73%</td>
+        <td class="delta-up">&#x2191; +18pts</td>
+      </tr>
+      <tr>
+        <td>elkmonkey</td>
+        <td>48%</td>
+        <td>52%</td>
+        <td>54%</td>
+        <td>57%</td>
+        <td class="delta-up">&#x2191; +9pts</td>
+      </tr>
+      <tr>
+        <td>Cannae</td>
+        <td>50%</td>
+        <td>55%</td>
+        <td>53%</td>
+        <td>56%</td>
+        <td class="delta-up">&#x2191; +6pts</td>
+      </tr>
+      <tr>
+        <td>swisstony</td>
+        <td>44%</td>
+        <td>38%</td>
+        <td>41%</td>
+        <td>45%</td>
+        <td style="color: #888;">&#x2194; flat</td>
+      </tr>
+      <tr>
+        <td>RN1</td>
+        <td>60%</td>
+        <td>52%</td>
+        <td>48%</td>
+        <td>45%</td>
+        <td class="delta-down">&#x2193; -15pts</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- What each MK changed -->
+<div class="detail-section" style="padding-bottom: 80px;">
+  <h2>EVOLUTION LOG</h2>
+  <div style="position: relative; padding-left: 40px;">
+    <div style="position: absolute; left: 16px; top: 0; bottom: 0; width: 2px; background: rgba(0, 255, 200, 0.1);"></div>
+
+    <div style="margin-bottom: 24px; position: relative;">
+      <div style="position: absolute; left: -32px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: #333; border: 2px solid #555;"></div>
+      <div style="color: #00ffc8; font-weight: 700; font-size: 14px;">MK1 — GENESIS</div>
+      <div style="color: #555; font-size: 11px;">Apr 9 &bull; 3b3a2b7</div>
+      <div style="color: #888; font-size: 12px; margin-top: 4px;">Paper trading, basic dashboard, no filters. The proof-of-concept.</div>
+      <div style="color: #666; font-size: 11px; margin-top: 4px; font-style: italic;">Hypothesis: "Can we detect and replay sharp wallet trades fast enough?"</div>
+    </div>
+
+    <div style="margin-bottom: 24px; position: relative;">
+      <div style="position: absolute; left: -32px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: #333; border: 2px solid #555;"></div>
+      <div style="color: #00ffc8; font-weight: 700; font-size: 14px;">MK2 — GUARDIAN</div>
+      <div style="color: #555; font-size: 11px;">Apr 15 &bull; 0f420bb</div>
+      <div style="color: #888; font-size: 12px; margin-top: 4px;">Loss-based pause, both-sides dedup, daily cap. First risk controls.</div>
+      <div style="color: #666; font-size: 11px; margin-top: 4px; font-style: italic;">Hypothesis: "Limiting exposure reduces drawdown without killing returns"</div>
+      <div style="margin-top: 6px;"><span class="change-tag improve">drawdown -40%</span><span class="change-tag regress">trades -25%</span></div>
+    </div>
+
+    <div style="margin-bottom: 24px; position: relative;">
+      <div style="position: absolute; left: -32px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: #ffd700; border: 2px solid #ffd700;"></div>
+      <div style="color: #ffd700; font-weight: 700; font-size: 14px;">MK11 — SOVEREIGN (ACTIVE)</div>
+      <div style="color: #555; font-size: 11px;">Apr 16 &bull; 263c1a3</div>
+      <div style="color: #888; font-size: 12px; margin-top: 4px;">Elite tier, 75% daily cap, 2x bypass for proven winners. The current champion.</div>
+      <div style="color: #666; font-size: 11px; margin-top: 4px; font-style: italic;">Hypothesis: "Trust proven winners more aggressively, throttle everyone else"</div>
+      <div style="margin-top: 6px;"><span class="change-tag improve">profit factor 1.9</span><span class="change-tag improve">sharpe 1.8</span><span class="change-tag improve">win rate 64%</span></div>
+    </div>
+
+    <div style="margin-bottom: 24px; position: relative;">
+      <div style="position: absolute; left: -32px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: transparent; border: 2px dashed #00a3ff;"></div>
+      <div style="color: #00a3ff; font-weight: 700; font-size: 14px;">MK12 — ??? (CONCEPT)</div>
+      <div style="color: #555; font-size: 11px;">TBD</div>
+      <div style="color: #888; font-size: 12px; margin-top: 4px;">Self-improving wallet selection. Auto-refresh from leaderboard. Signal alerts integration.</div>
+      <div style="color: #666; font-size: 11px; margin-top: 4px; font-style: italic;">Hypothesis: "The bot should choose its own traders based on recent performance"</div>
+    </div>
+  </div>
+</div>
+
+<div class="compare-bar">
+  <div class="label">SELECT SUITS TO COMPARE (click cards above)</div>
+  <button class="compare-btn">COMPARE SELECTED &#x2192;</button>
+</div>

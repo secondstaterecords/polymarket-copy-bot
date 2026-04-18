@@ -90,6 +90,7 @@ function Nav() {
         <nav className="flex items-center gap-8 mono text-xs uppercase tracking-wider text-paper-muted">
           <a href="#edge" className="hover:text-phosphor transition-colors">edge</a>
           <a href="#mechanism" className="hover:text-phosphor transition-colors">mechanism</a>
+          <a href="/performance" className="hover:text-phosphor transition-colors">performance</a>
           <a href="#pricing" className="hover:text-phosphor transition-colors">access</a>
           <a
             href="#pricing"

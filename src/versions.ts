@@ -199,6 +199,17 @@ export const VERSIONS: VersionConfig[] = [
     description: "Circuit breaker resets at 4 AM ET instead of midnight UTC",
     status: "deployed", trackedTraderCount: 22,
   },
+  {
+    ...BASE, mk: 19, codename: "Priority", commit: "pending", date: "2026-04-18",
+    dedupAcrossTraders: true, adaptiveSizing: true, maxSignalsPerHour: 20,
+    maxPerMarketPct: 5, bypassNoiseForProvenWinners: true,
+    maxDailyExposurePct: 75, bypassDailyCapForProvenWinners: true,
+    provenWinnerStacking: true,
+    eliteTierEnabled: true, eliteTraders: ["0x2a2c", "sovereign2013"],
+    hypothesis: "Deferring low-confidence trades 60s to prioritize elite signals preserves capital for best opportunities",
+    description: "Priority queue — defer <50% confidence trades 60s, execute elite/proven signals immediately",
+    status: "testing", trackedTraderCount: 22,
+  },
 ];
 
 export function getVersion(mk: number): VersionConfig | undefined {

@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coattail Suit Lab — Full Design</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #07080c; color: #c8ccd4; font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.6; }
+
+  .page { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+  h1 { font-size: 22px; letter-spacing: 3px; text-transform: uppercase;
+    background: linear-gradient(135deg, #00ffc8, #00a3ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 4px; }
+  h2 { font-size: 15px; color: #00ffc8; letter-spacing: 2px; text-transform: uppercase; margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 1px solid rgba(0,255,200,0.12); }
+  h3 { font-size: 13px; color: #8899aa; letter-spacing: 1px; text-transform: uppercase; margin: 20px 0 10px; }
+  .sub { color: #445; font-size: 11px; letter-spacing: 1px; margin-bottom: 32px; }
+
+  .section { background: rgba(12,14,22,0.8); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 24px; margin-bottom: 20px; }
+  .accent { color: #00ffc8; }
+  .gold { color: #ffd700; }
+  .dim { color: #334; }
+  .red { color: #ff4455; }
+
+  .cols { display: grid; gap: 16px; }
+  .cols-2 { grid-template-columns: 1fr 1fr; }
+  .cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  .metric-card { background: rgba(0,255,200,0.02); border: 1px solid rgba(0,255,200,0.06); border-radius: 6px; padding: 14px; }
+  .metric-card .val { font-size: 22px; font-weight: 700; color: #fff; }
+  .metric-card .label { font-size: 9px; color: #556; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .metric-card .explain { font-size: 10px; color: #334; margin-top: 6px; line-height: 1.4; }
+
+  .tag { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 3px; margin: 2px; letter-spacing: 0.5px; }
+  .tag-cyan { background: rgba(0,255,200,0.1); color: #00ffc8; }
+  .tag-gold { background: rgba(255,215,0,0.1); color: #ffd700; }
+  .tag-blue { background: rgba(0,163,255,0.1); color: #00a3ff; }
+  .tag-red { background: rgba(255,60,60,0.1); color: #ff4455; }
+  .tag-dim { background: rgba(255,255,255,0.03); color: #556; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 8px 10px; color: #445; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+  tr:hover { background: rgba(0,255,200,0.015); }
+
+  .flow-arrow { color: #00ffc8; font-size: 16px; text-align: center; padding: 8px; }
+
+  .mockup-frame { border: 1px solid rgba(0,255,200,0.15); border-radius: 8px; overflow: hidden; }
+  .mockup-bar { background: rgba(0,255,200,0.05); padding: 8px 14px; font-size: 10px; color: #00ffc8; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid rgba(0,255,200,0.1); display: flex; justify-content: space-between; }
+  .mockup-body { padding: 20px; background: rgba(7,8,12,0.95); }
+
+  .nav-tabs { display: flex; gap: 0; margin-bottom: 20px; }
+  .nav-tab { padding: 10px 20px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; border: 1px solid rgba(255,255,255,0.05); color: #445; cursor: pointer; }
+  .nav-tab:first-child { border-radius: 6px 0 0 6px; }
+  .nav-tab:last-child { border-radius: 0 6px 6px 0; }
+  .nav-tab.active { background: rgba(0,255,200,0.08); color: #00ffc8; border-color: rgba(0,255,200,0.2); }
+
+  .sparkline-placeholder { height: 60px; background: linear-gradient(135deg, rgba(0,255,200,0.03), rgba(0,163,255,0.03)); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #223; font-size: 10px; }
+
+  .tier-badge { font-size: 9px; padding: 2px 6px; border-radius: 3px; letter-spacing: 1px; vertical-align: middle; margin-left: 8px; }
+
+  .timeline { position: relative; padding-left: 32px; }
+  .timeline::before { content: ''; position: absolute; left: 12px; top: 0; bottom: 0; width: 2px; background: rgba(0,255,200,0.08); }
+  .timeline-item { margin-bottom: 16px; position: relative; }
+  .timeline-dot { position: absolute; left: -26px; top: 4px; width: 10px; height: 10px; border-radius: 50%; }
+  .dot-retired { background: #333; border: 2px solid #444; }
+  .dot-active { background: #ffd700; border: 2px solid #ffd700; }
+  .dot-concept { background: none; border: 2px dashed #00a3ff; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>COATTAIL SUIT LAB</h1>
+<div class="sub">FULL SYSTEM DESIGN &bull; 3 VIEWS SHOWN BELOW</div>
+
+<!-- ================================================================== -->
+<h2>1. ARCHITECTURE OVERVIEW</h2>
+<!-- ================================================================== -->
+<div class="section">
+  <h3>Data Flow</h3>
+  <div class="cols cols-3" style="text-align: center; align-items: center;">
+    <div class="metric-card">
+      <div class="val" style="font-size: 14px;">SIGNAL INGESTION</div>
+      <div class="explain">107K+ signals from 22 wallets. Every BUY/SELL detected from tracked traders.</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="metric-card">
+      <div class="val" style="font-size: 14px;">MULTI-SIM ENGINE</div>
+      <div class="explain">Each signal evaluated against ALL version configs simultaneously. Results logged per-version.</div>
+    </div>
+  </div>
+  <div class="flow-arrow">&darr;</div>
+  <div class="cols cols-3" style="text-align: center; align-items: center;">
+    <div class="metric-card">
+      <div class="val" style="font-size: 14px;">METRICS COMPUTER</div>
+      <div class="explain">Brier score, Sharpe, drawdown, per-trader stats, category alpha — computed per version.</div>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="metric-card">
+      <div class="val" style="font-size: 14px;">API + DASHBOARD</div>
+      <div class="explain">Internal: full detail. Subscriber: per-trader view. Public: curated showcase.</div>
+    </div>
+  </div>
+
+  <h3 style="margin-top: 24px;">New Database Tables</h3>
+  <table>
+    <tr><td class="accent">version_configs</td><td>Every iteration's filter/sizing params + hypothesis + commit hash</td></tr>
+    <tr><td class="accent">sim_results</td><td>Per-signal, per-version: would_trade, amount, filter_reason</td></tr>
+    <tr><td class="accent">sim_portfolios</td><td>Per-version virtual portfolio: positions, cash, equity curve over time</td></tr>
+    <tr><td class="accent">sim_metrics</td><td>Computed metrics per version: Sharpe, Brier, drawdown, etc. Updated hourly</td></tr>
+  </table>
+</div>
+
+<!-- ================================================================== -->
+<h2>2. YOUR VIEW — INTERNAL SUIT LAB</h2>
+<div class="sub">Full detail. All metrics. Filter configs exposed. This is your workshop.</div>
+<!-- ================================================================== -->
+
+<div class="mockup-frame">
+  <div class="mockup-bar">
+    <span>coattail.me/lab (auth-gated, your account only)</span>
+    <span class="tag tag-gold">INTERNAL</span>
+  </div>
+  <div class="mockup-body">
+
+    <div class="nav-tabs">
+      <div class="nav-tab active">SUIT GRID</div>
+      <div class="nav-tab">COMPARE</div>
+      <div class="nav-tab">TRADERS</div>
+      <div class="nav-tab">CATEGORIES</div>
+      <div class="nav-tab">TIMELINE</div>
+      <div class="nav-tab">LIVE SIM</div>
+    </div>
+
+    <!-- Suit Grid -->
+    <div class="cols cols-4" style="margin-bottom: 20px;">
+      <div class="metric-card" style="border-color: rgba(255,255,255,0.05);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 16px; font-weight: 700; color: #fff;"><span class="accent">MK1</span> GENESIS</div>
+          <span class="tag tag-red">RETIRED</span>
+        </div>
+        <div style="color: #445; font-size: 10px; margin: 4px 0;">Apr 9 &bull; No filters</div>
+        <div class="sparkline-placeholder">equity curve</div>
+        <div class="cols cols-3" style="gap: 6px; margin-top: 10px; text-align: center;">
+          <div><div style="font-size: 14px; font-weight: 700;">42%</div><div style="font-size: 8px; color: #445;">WIN RATE</div></div>
+          <div><div style="font-size: 14px; font-weight: 700; color: #ff4455;">-$47</div><div style="font-size: 8px; color: #445;">NET PNL</div></div>
+          <div><div style="font-size: 14px; font-weight: 700;">0.3</div><div style="font-size: 8px; color: #445;">SHARPE</div></div>
+        </div>
+      </div>
+
+      <div class="metric-card" style="border-color: rgba(255,255,255,0.05);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 16px; font-weight: 700; color: #fff;"><span class="accent">MK6</span> ORACLE</div>
+          <span class="tag tag-red">RETIRED</span>
+        </div>
+        <div style="color: #445; font-size: 10px; margin: 4px 0;">Apr 16 &bull; Resolution tracking + adaptive sizing</div>
+        <div class="sparkline-placeholder">equity curve</div>
+        <div class="cols cols-3" style="gap: 6px; margin-top: 10px; text-align: center;">
+          <div><div style="font-size: 14px; font-weight: 700;">58%</div><div style="font-size: 8px; color: #445;">WIN RATE</div></div>
+          <div><div style="font-size: 14px; font-weight: 700; color: #00ffc8;">+$82</div><div style="font-size: 8px; color: #445;">NET PNL</div></div>
+          <div><div style="font-size: 14px; font-weight: 700;">1.2</div><div style="font-size: 8px; color: #445;">SHARPE</div></div>
+        </div>
+      </div>
+
+      <div class="metric-card" style="border-color: rgba(255,215,0,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 16px; font-weight: 700; color: #fff;"><span class="gold">MK11</span> SOVEREIGN</div>
+          <span class="tag tag-gold">DEPLOYED</span>
+        </div>
+        <div style="color: #445; font-size: 10px; margin: 4px 0;">Apr 16 &bull; Elite tier + proven winner bypass</div>
+        <div class="sparkline-placeholder" style="background: linear-gradient(135deg, rgba(255,215,0,0.05), rgba(255,215,0,0.02));">equity curve (gold)</div>
+        <div class="cols cols-3" style="gap: 6px; margin-top: 10px; text-align: center;">
+          <div><div style="font-size: 14px; font-weight: 700; color: #00ffc8;">64%</div><div style="font-size: 8px; color: #445;">WIN RATE</div></div>
+          <div><div style="font-size: 14px; font-weight: 700; color: #00ffc8;">+$196</div><div style="font-size: 8px; color: #445;">NET PNL</div></div>
+          <div><div style="font-size: 14px; font-weight: 700;">1.8</div><div style="font-size: 8px; color: #445;">SHARPE</div></div>
+        </div>
+      </div>
+
+      <div class="metric-card" style="border-style: dashed; border-color: rgba(0,163,255,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 16px; font-weight: 700; color: #fff;"><span style="color: #00a3ff;">MK12</span> ???</div>
+          <span class="tag tag-blue">CONCEPT</span>
+        </div>
+        <div style="color: #445; font-size: 10px; margin: 4px 0;">TBD &bull; Auto trader refresh</div>
+        <div class="sparkline-placeholder" style="color: #1a1a2a;">awaiting data</div>
+        <div class="cols cols-3" style="gap: 6px; margin-top: 10px; text-align: center;">
+          <div><div style="font-size: 14px; font-weight: 700; color: #223;">—</div><div style="font-size: 8px; color: #445;">WIN RATE</div></div>
+          <div><div style="font-size: 14px; font-weight: 700; color: #223;">—</div><div style="font-size: 8px; color: #445;">NET PNL</div></div>
+          <div><div style="font-size: 14px; font-weight: 700; color: #223;">—</div><div style="font-size: 8px; color: #445;">SHARPE</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expanded detail for selected version -->
+    <h3>MK11 SOVEREIGN — FULL METRICS</h3>
+    <div class="section" style="background: rgba(255,215,0,0.01); border-color: rgba(255,215,0,0.1);">
+
+      <div style="font-size: 11px; color: #556; margin-bottom: 12px;">
+        <strong class="gold">HYPOTHESIS:</strong> "Trust proven winners more aggressively, throttle everyone else"<br>
+        <strong class="accent">COMMIT:</strong> 263c1a3 &bull; <strong>DATE:</strong> Apr 16 &bull; <strong>CHANGES:</strong>
+        <span class="tag tag-cyan">daily cap 75%</span>
+        <span class="tag tag-cyan">proven winner 2x bypass</span>
+        <span class="tag tag-cyan">elite tier zero noise</span>
+      </div>
+
+      <h3>Tier 1 — Headlines</h3>
+      <div class="cols cols-4" style="margin-bottom: 16px;">
+        <div class="metric-card"><div class="val accent">64%</div><div class="label">Win Rate</div><div class="explain">138 wins / 216 resolved</div></div>
+        <div class="metric-card"><div class="val accent">+$196</div><div class="label">Net PnL</div><div class="explain">Paper: all signals through this config</div></div>
+        <div class="metric-card"><div class="val">1.9</div><div class="label">Profit Factor</div><div class="explain">Gross profit / gross loss</div></div>
+        <div class="metric-card"><div class="val">1.8</div><div class="label">Sharpe Ratio</div><div class="explain">Risk-adjusted return</div></div>
+      </div>
+
+      <h3>Tier 2 — Decision Makers</h3>
+      <div class="cols cols-4" style="margin-bottom: 16px;">
+        <div class="metric-card"><div class="val">0.21</div><div class="label">Brier Score</div><div class="explain">Calibration quality. 0 = perfect. 0.25 = coin flip. Lower = better.</div></div>
+        <div class="metric-card"><div class="val accent">+18.2%</div><div class="label">Time-Weighted ROI</div><div class="explain">Annualized, adjusted for capital lockup duration per market</div></div>
+        <div class="metric-card"><div class="val red">-$35</div><div class="label">Max Drawdown</div><div class="explain">Worst peak-to-trough. Duration: 6 hours</div></div>
+        <div class="metric-card"><div class="val">+$0.48</div><div class="label">Avg Return/Trade</div><div class="explain">Expected value per $5 bet placed</div></div>
+      </div>
+      <div class="cols cols-4" style="margin-bottom: 16px;">
+        <div class="metric-card"><div class="val">22%</div><div class="label">Signal-to-Trade</div><div class="explain">412 trades / 1,847 signals. 78% filtered out.</div></div>
+        <div class="metric-card"><div class="val">1.6</div><div class="label">Sortino Ratio</div><div class="explain">Sharpe but only penalizes downside. Higher = less painful losses.</div></div>
+        <div class="metric-card"><div class="val">0.04</div><div class="label">Kelly Fraction</div><div class="explain">Optimal: 4% of bankroll per trade. Currently betting 2%. Room to size up.</div></div>
+        <div class="metric-card"><div class="val">2.3</div><div class="label">Tail Ratio</div><div class="explain">95th pctl gain / 5th pctl loss. >1 = wins bigger than losses.</div></div>
+      </div>
+
+      <h3>Tier 3 — Deep Analysis</h3>
+      <div class="cols cols-2">
+        <div>
+          <h3 style="margin-top: 8px;">Per-Trader Breakdown</h3>
+          <table>
+            <tr><th>Trader</th><th>WR</th><th>PnL</th><th>Sharpe</th><th>Trades</th><th>Status</th></tr>
+            <tr><td class="gold">0x2a2c</td><td class="accent">92%</td><td class="accent">+$87</td><td>2.4</td><td>38</td><td><span class="tag tag-gold">ELITE</span></td></tr>
+            <tr><td>sovereign2013</td><td class="accent">73%</td><td class="accent">+$64</td><td>1.8</td><td>15</td><td><span class="tag tag-gold">ELITE</span></td></tr>
+            <tr><td>elkmonkey</td><td>57%</td><td class="accent">+$32</td><td>1.1</td><td>24</td><td><span class="tag tag-cyan">TRACKED</span></td></tr>
+            <tr><td>Cannae</td><td>56%</td><td class="accent">+$18</td><td>0.9</td><td>31</td><td><span class="tag tag-cyan">TRACKED</span></td></tr>
+            <tr><td>swisstony</td><td>45%</td><td class="red">-$12</td><td>-0.2</td><td>42</td><td><span class="tag tag-dim">NOISY</span></td></tr>
+            <tr><td>RN1</td><td>45%</td><td class="red">-$8</td><td>-0.1</td><td>18</td><td><span class="tag tag-dim">DECLINING</span></td></tr>
+          </table>
+        </div>
+        <div>
+          <h3 style="margin-top: 8px;">Category Alpha</h3>
+          <table>
+            <tr><th>Category</th><th>WR</th><th>PnL</th><th>Edge</th></tr>
+            <tr><td>MLB</td><td class="accent">71%</td><td class="accent">+$68</td><td><span class="tag tag-cyan">STRONG</span></td></tr>
+            <tr><td>EPL</td><td>62%</td><td class="accent">+$41</td><td><span class="tag tag-cyan">GOOD</span></td></tr>
+            <tr><td>NHL</td><td>58%</td><td class="accent">+$22</td><td><span class="tag tag-blue">MODERATE</span></td></tr>
+            <tr><td>NBA</td><td>52%</td><td class="accent">+$8</td><td><span class="tag tag-dim">WEAK</span></td></tr>
+            <tr><td>Tennis</td><td>48%</td><td class="red">-$15</td><td><span class="tag tag-red">NEGATIVE</span></td></tr>
+            <tr><td>Esports</td><td>44%</td><td class="red">-$22</td><td><span class="tag tag-red">NEGATIVE</span></td></tr>
+            <tr><td>Crypto</td><td>35%</td><td class="red">-$5</td><td><span class="tag tag-red">AVOID</span></td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="cols cols-3" style="margin-top: 16px;">
+        <div class="metric-card"><div class="val">0.32</div><div class="label">Leader Correlation</div><div class="explain">Avg pairwise correlation between traders. &lt;0.5 = well diversified.</div></div>
+        <div class="metric-card"><div class="val">-0.8%</div><div class="label">Avg Slippage</div><div class="explain">Price diff vs leader's fill. Negative = we get worse price.</div></div>
+        <div class="metric-card"><div class="val">4.2s</div><div class="label">Signal Latency</div><div class="explain">Avg time from leader trade to our detection.</div></div>
+      </div>
+      <div class="cols cols-3" style="margin-top: 8px;">
+        <div class="metric-card"><div class="val">-2.1%/wk</div><div class="label">Edge Decay Rate</div><div class="explain">ROI trend over time. Negative = edge shrinking.</div></div>
+        <div class="metric-card"><div class="val">0.08</div><div class="label">Concentration (HHI)</div><div class="explain">Herfindahl index. &lt;0.15 = safe. &gt;0.25 = dangerous.</div></div>
+        <div class="metric-card"><div class="val">12%</div><div class="label">Stale Signal Rate</div><div class="explain">% of trades where price moved >2% before execution.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<h2>3. SUBSCRIBER VIEW — PERFORMANCE DASHBOARD</h2>
+<div class="sub">Paying customers (Passenger/Operator). Anonymized traders, no filter configs.</div>
+<!-- ================================================================== -->
+
+<div class="mockup-frame">
+  <div class="mockup-bar">
+    <span>coattail.me/performance (subscriber-gated)</span>
+    <span class="tag tag-cyan">SUBSCRIBER</span>
+  </div>
+  <div class="mockup-body">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div style="font-size: 18px; font-weight: 700; color: #fff; letter-spacing: 2px;">SYSTEM PERFORMANCE</div>
+      <div style="color: #445; font-size: 11px;">Real-time analytics from our copy-trading engine</div>
+    </div>
+
+    <div class="cols cols-4" style="margin-bottom: 20px;">
+      <div class="metric-card" style="text-align: center;">
+        <div class="val gold" style="font-size: 28px;">V11</div>
+        <div class="label">Current Version</div>
+      </div>
+      <div class="metric-card" style="text-align: center;">
+        <div class="val accent" style="font-size: 28px;">64%</div>
+        <div class="label">Win Rate</div>
+      </div>
+      <div class="metric-card" style="text-align: center;">
+        <div class="val" style="font-size: 28px;">229</div>
+        <div class="label">Resolved Markets</div>
+      </div>
+      <div class="metric-card" style="text-align: center;">
+        <div class="val" style="font-size: 28px;">1.8</div>
+        <div class="label">Sharpe Ratio</div>
+      </div>
+    </div>
+
+    <h3>Tracked Wallets</h3>
+    <table>
+      <tr><th>Wallet</th><th>Win Rate</th><th>Confidence</th><th>Resolved</th><th>Specialty</th></tr>
+      <tr><td class="gold">WALLET-A</td><td class="accent">92%</td><td><span class="tag tag-gold">HIGH</span></td><td>38</td><td>MLB, EPL</td></tr>
+      <tr><td>WALLET-B</td><td class="accent">73%</td><td><span class="tag tag-cyan">MEDIUM</span></td><td>15</td><td>MLB, Tennis</td></tr>
+      <tr><td>WALLET-C</td><td>57%</td><td><span class="tag tag-blue">BUILDING</span></td><td>24</td><td>Soccer, NHL</td></tr>
+      <tr><td>WALLET-D</td><td>56%</td><td><span class="tag tag-blue">BUILDING</span></td><td>31</td><td>Mixed</td></tr>
+    </table>
+
+    <h3 style="margin-top: 20px;">System Evolution</h3>
+    <div class="sparkline-placeholder" style="height: 100px;">
+      Win Rate Over Time: 42% (V1) &rarr; 58% (V6) &rarr; 64% (V11) &bull; Equity Curve
+    </div>
+
+    <h3 style="margin-top: 20px;">Category Performance</h3>
+    <div class="cols cols-4" style="text-align: center;">
+      <div class="metric-card"><div class="val accent">71%</div><div class="label">MLB</div></div>
+      <div class="metric-card"><div class="val accent">62%</div><div class="label">EPL</div></div>
+      <div class="metric-card"><div class="val">58%</div><div class="label">NHL</div></div>
+      <div class="metric-card"><div class="val">52%</div><div class="label">NBA</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<h2>4. PUBLIC VIEW — MARKETING SHOWCASE</h2>
+<div class="sub">Anyone visiting coattail.me. Curated narrative, no specifics.</div>
+<!-- ================================================================== -->
+
+<div class="mockup-frame">
+  <div class="mockup-bar">
+    <span>coattail.me/performance (public section)</span>
+    <span class="tag tag-dim">PUBLIC</span>
+  </div>
+  <div class="mockup-body" style="text-align: center;">
+    <div style="font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 2px; margin-bottom: 8px;">ENGINEERED TO IMPROVE</div>
+    <div style="color: #556; font-size: 12px; margin-bottom: 24px;">11 iterations. Every change measured. Every assumption tested.</div>
+
+    <div class="cols cols-3" style="max-width: 600px; margin: 0 auto 24px;">
+      <div class="metric-card" style="text-align: center;">
+        <div class="val" style="font-size: 32px;">11</div>
+        <div class="label">Versions Built</div>
+      </div>
+      <div class="metric-card" style="text-align: center;">
+        <div class="val accent" style="font-size: 32px;">+52%</div>
+        <div class="label">Win Rate Improvement</div>
+      </div>
+      <div class="metric-card" style="text-align: center;">
+        <div class="val" style="font-size: 32px;">229</div>
+        <div class="label">Markets Resolved</div>
+      </div>
+    </div>
+
+    <div class="sparkline-placeholder" style="height: 80px; max-width: 600px; margin: 0 auto 24px;">
+      Win Rate Over Versions: Upward trend visualization
+    </div>
+
+    <div style="color: #556; font-size: 12px; max-width: 500px; margin: 0 auto 20px; line-height: 1.6;">
+      Our system is continuously improved through rigorous backtesting across 100K+ historical signals. Each version is paper-traded against the full dataset before deployment.
+    </div>
+
+    <div style="display: inline-block; background: linear-gradient(135deg, #00ffc8, #00a3ff); color: #000; padding: 12px 32px; border-radius: 6px; font-weight: 700; font-size: 13px; letter-spacing: 1px; cursor: pointer;">
+      SUBSCRIBE FOR FULL ANALYTICS &rarr;
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<h2>5. LIVE SIM TAB — REAL-TIME COMPARISON</h2>
+<div class="sub">Watch all versions process signals simultaneously</div>
+<!-- ================================================================== -->
+
+<div class="mockup-frame">
+  <div class="mockup-bar">
+    <span>coattail.me/lab &bull; Live Sim</span>
+    <span class="tag tag-gold">INTERNAL</span>
+  </div>
+  <div class="mockup-body">
+    <div style="font-size: 11px; color: #445; margin-bottom: 12px;">INCOMING SIGNAL &bull; 2026-04-18 07:49:29 UTC</div>
+    <div style="background: rgba(0,255,200,0.03); border: 1px solid rgba(0,255,200,0.1); border-radius: 6px; padding: 14px; margin-bottom: 16px;">
+      <div style="color: #fff; font-size: 14px; font-weight: 700;">Cannae &rarr; BUY epl-tot-bri-2026-04-18-btts:Yes @ 0.60</div>
+      <div style="color: #556; font-size: 11px; margin-top: 4px;">Trader amount: $45 &bull; Category: EPL &bull; Signal #107,253</div>
+    </div>
+
+    <table>
+      <tr><th>Version</th><th>Decision</th><th>Reason</th><th>Amount</th><th>Running PnL</th></tr>
+      <tr><td><span class="accent">MK1</span> Genesis</td><td><span class="tag tag-cyan">TRADE</span></td><td>No filters</td><td>$5.00</td><td class="red">-$47.20</td></tr>
+      <tr><td><span class="accent">MK6</span> Oracle</td><td><span class="tag tag-cyan">TRADE</span></td><td>Passes all filters</td><td>$5.00</td><td class="accent">+$82.10</td></tr>
+      <tr><td><span class="accent">MK8</span> Vanguard</td><td><span class="tag tag-cyan">TRADE</span></td><td>Passes, Cannae not proven</td><td>$5.00</td><td class="accent">+$134.50</td></tr>
+      <tr><td><span class="gold">MK11</span> Sovereign</td><td><span class="tag tag-red">SKIP</span></td><td>insufficient balance ($3.77 &lt; $5)</td><td>—</td><td class="accent">+$196.69</td></tr>
+      <tr><td style="color: #00a3ff;">MK12 Concept</td><td><span class="tag tag-cyan">TRADE</span></td><td>Cannae passes + higher daily cap</td><td>$7.50</td><td style="color: #556;">simulating...</td></tr>
+    </table>
+
+    <div style="margin-top: 16px; color: #334; font-size: 11px;">
+      <strong class="accent">INSIGHT:</strong> MK11 would have taken this trade but ran out of cash. MK8 and MK6 both pass it.
+      MK12's higher daily cap + adaptive sizing would bet $7.50 here (1.5x for Cannae's EPL category alpha).
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>
