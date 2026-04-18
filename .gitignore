@@ -5,6 +5,7 @@ archive/
 
 # Data files (user-specific, regenerated at runtime)
 copybot.db
+copybot*.db*
 copybot-*.db
 bot-status.json
 paper-pnl.json
