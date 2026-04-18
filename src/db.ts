@@ -196,6 +196,9 @@ export function upsertSimMetric(
   mk: number, metricName: string, metricValue: number,
   sampleSize: number, confidence: string
 ) {
+  // Guard against NaN/undefined/Infinity which would violate NOT NULL
+  if (metricValue == null || !isFinite(metricValue)) metricValue = 0;
+  if (sampleSize == null || !isFinite(sampleSize)) sampleSize = 0;
   db.prepare(`
     INSERT INTO sim_metrics (mk, computed_at, metric_name, metric_value, sample_size, confidence)
     VALUES (?, ?, ?, ?, ?, ?)
