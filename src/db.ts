@@ -56,6 +56,55 @@ export function createDb(dataDir: string): Database.Database {
       size_multiplier REAL NOT NULL DEFAULT 1.0,
       updated_at TEXT NOT NULL
     );
+
+    -- Suit Lab: version configs
+    CREATE TABLE IF NOT EXISTS version_configs (
+      mk INTEGER PRIMARY KEY,
+      codename TEXT NOT NULL,
+      commit_hash TEXT NOT NULL,
+      date TEXT NOT NULL,
+      hypothesis TEXT,
+      description TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'retired',
+      config_json TEXT NOT NULL
+    );
+
+    -- Suit Lab: simulation results
+    CREATE TABLE IF NOT EXISTS sim_results (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      signal_id INTEGER NOT NULL,
+      mk INTEGER NOT NULL,
+      decision TEXT NOT NULL,
+      skip_reason TEXT,
+      sim_amount REAL,
+      sim_shares REAL,
+      created_at TEXT NOT NULL,
+      UNIQUE(signal_id, mk)
+    );
+    CREATE INDEX IF NOT EXISTS idx_sim_results_mk ON sim_results(mk);
+    CREATE INDEX IF NOT EXISTS idx_sim_results_signal ON sim_results(signal_id);
+
+    -- Suit Lab: simulated portfolio snapshots
+    CREATE TABLE IF NOT EXISTS sim_portfolios (
+      mk INTEGER NOT NULL,
+      timestamp TEXT NOT NULL,
+      cash REAL NOT NULL,
+      positions_value REAL NOT NULL,
+      total_equity REAL NOT NULL,
+      open_positions INTEGER NOT NULL,
+      PRIMARY KEY (mk, timestamp)
+    );
+
+    -- Suit Lab: computed metrics per version
+    CREATE TABLE IF NOT EXISTS sim_metrics (
+      mk INTEGER NOT NULL,
+      computed_at TEXT NOT NULL,
+      metric_name TEXT NOT NULL,
+      metric_value REAL NOT NULL,
+      sample_size INTEGER,
+      confidence TEXT,
+      PRIMARY KEY (mk, metric_name)
+    );
   `);
   // Migrations for existing DBs
   try { db.exec("ALTER TABLE trader_stats ADD COLUMN avg_clv_pct REAL NOT NULL DEFAULT 0"); } catch {}
@@ -127,4 +176,54 @@ export function getDailyExposure(db: Database.Database): number {
     FROM trades WHERE action = 'SELL' AND status IN ('success', 'paper') AND timestamp >= ?
   `).get(today + "T00:00:00.000Z") as any;
   return Math.max(0, (buys?.total || 0) - (sells?.total || 0));
+}
+
+// Suit Lab helpers
+
+export function insertSimResult(
+  db: Database.Database,
+  signalId: number, mk: number, decision: string,
+  skipReason: string | null, simAmount: number | null, simShares: number | null
+) {
+  db.prepare(`
+    INSERT OR IGNORE INTO sim_results (signal_id, mk, decision, skip_reason, sim_amount, sim_shares, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(signalId, mk, decision, skipReason, simAmount, simShares, new Date().toISOString());
+}
+
+export function upsertSimMetric(
+  db: Database.Database,
+  mk: number, metricName: string, metricValue: number,
+  sampleSize: number, confidence: string
+) {
+  db.prepare(`
+    INSERT INTO sim_metrics (mk, computed_at, metric_name, metric_value, sample_size, confidence)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(mk, metric_name) DO UPDATE SET
+      metric_value = excluded.metric_value,
+      sample_size = excluded.sample_size,
+      confidence = excluded.confidence,
+      computed_at = excluded.computed_at
+  `).run(mk, new Date().toISOString(), metricName, metricValue, sampleSize, confidence);
+}
+
+export function insertSimPortfolioSnapshot(
+  db: Database.Database,
+  mk: number, cash: number, positionsValue: number, openPositions: number
+) {
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT OR REPLACE INTO sim_portfolios (mk, timestamp, cash, positions_value, total_equity, open_positions)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(mk, now, cash, positionsValue, cash + positionsValue, openPositions);
+}
+
+export function seedVersionConfigs(db: Database.Database, versions: any[]) {
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO version_configs (mk, codename, commit_hash, date, hypothesis, description, status, config_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const v of versions) {
+    stmt.run(v.mk, v.codename, v.commit, v.date, v.hypothesis, v.description, v.status, JSON.stringify(v));
+  }
 }
