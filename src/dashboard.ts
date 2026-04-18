@@ -612,6 +612,89 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // ── Suit Lab API routes ────────────────────────────────────────────
+  // Use require() to avoid circular deps at module load time
+  const labApi = require("./lab-api");
+  const parsedUrl = new URL(req.url || "/", "http://localhost");
+  const pathname = parsedUrl.pathname;
+
+  if (req.method === "GET" && pathname === "/api/lab/versions") {
+    try {
+      const db = getDb();
+      if (!db) { res.writeHead(503, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "DB unavailable" })); return; }
+      const result = labApi.getVersions(db);
+      db.close();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err: any) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/lab/live-sim") {
+    try {
+      const db = getDb();
+      if (!db) { res.writeHead(503, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "DB unavailable" })); return; }
+      const result = labApi.getLatestSimSignal(db);
+      db.close();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err: any) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/lab/compare") {
+    try {
+      const mksParam = parsedUrl.searchParams.get("mks") || "";
+      const mks = mksParam.split(",").map(Number).filter(n => !isNaN(n) && n > 0);
+      const db = getDb();
+      if (!db) { res.writeHead(503, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "DB unavailable" })); return; }
+      const result = labApi.getCompare(db, mks);
+      db.close();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err: any) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/public/performance") {
+    try {
+      const db = getDb();
+      if (!db) { res.writeHead(503, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "DB unavailable" })); return; }
+      const result = labApi.getPublicPerformance(db);
+      db.close();
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" });
+      res.end(JSON.stringify(result));
+    } catch (err: any) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/subscriber/performance") {
+    try {
+      const db = getDb();
+      if (!db) { res.writeHead(503, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "DB unavailable" })); return; }
+      const result = labApi.getSubscriberPerformance(db);
+      db.close();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+    } catch (err: any) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   res.writeHead(404);
   res.end("Not found");
 });
