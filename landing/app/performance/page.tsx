@@ -78,19 +78,33 @@ export default function PerformancePage() {
           fetch(`${API_BASE}/api/lab/versions`),
         ]);
 
-        if (pubR.status === "fulfilled" && pubR.value.ok) {
-          const d = await pubR.value.json();
-          if (d.versions?.length) setVersions(d.versions);
-          if (d.categories?.length) setCategories(d.categories);
-        }
         if (subR.status === "fulfilled" && subR.value.ok) {
           const d = await subR.value.json();
-          if (d.wallets?.length) setWallets(d.wallets);
+          if (d.traderLeaderboard?.length) setWallets(d.traderLeaderboard);
+          if (d.categoryPerformance?.length) setCategories(d.categoryPerformance);
+          if (d.versionHistory?.length) {
+            setVersions(d.versionHistory.map((v: any) => ({
+              mk: v.mk, codename: v.codename, date: v.date,
+              description: v.description,
+              status: (v.status || "retired").toUpperCase(),
+              win_rate: v.winRate ?? null, net_pnl: v.netPnl ?? null, sharpe: v.sharpe ?? null,
+            })));
+          }
         }
         if (labR.status === "fulfilled" && labR.value.ok) {
           const d = await labR.value.json();
-          if (d.versions?.length) setVersions(d.versions);
-          if (d.compare?.length) setCompare(d.compare);
+          if (Array.isArray(d) && d.length) {
+            setVersions(d.map((v: any) => ({
+              mk: v.mk, codename: v.codename, date: v.date,
+              description: v.description,
+              status: (v.status || "retired").toUpperCase(),
+              win_rate: v.metrics?.win_rate?.value ?? null,
+              net_pnl: v.metrics?.net_pnl?.value ?? null,
+              sharpe: v.metrics?.sharpe_ratio?.value ?? null,
+            })));
+            const keyMks = [1, 5, 9, 11, 14, 17, 18];
+            setCompare(d.filter((v: any) => keyMks.includes(v.mk)));
+          }
         }
       } catch {
         // use fallback data
