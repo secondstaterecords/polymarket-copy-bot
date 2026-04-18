@@ -32,6 +32,10 @@ import {
 } from "./telegram";
 import { scanAndRecordResolutions } from "./resolution-tracker";
 import { recomputeAllTraderStats, getTraderSizeMultiplier } from "./trader-stats";
+import { simulateSignal, applyResolutions, savePortfolioSnapshots } from "./sim-engine";
+import { computeAllMetrics } from "./metrics";
+import { VERSIONS } from "./versions";
+import { seedVersionConfigs } from "./db";
 
 // ── State ───────────────────────────────────────────────────────────
 let config: BotConfig;
@@ -389,6 +393,24 @@ function pollViaTracker(): void {
       if (recentSignals.length > 200) recentSignals.shift();
 
       processSignal(signal);
+
+      // Multi-sim: evaluate this signal against all MK versions
+      try {
+        const lastInserted = db.prepare("SELECT last_insert_rowid() as id").get() as any;
+        if (lastInserted?.id) {
+          const simTraderEv = new Map<string, { expectedValue: number; confidence: string }>();
+          const simRows = db.prepare(`SELECT trader, expected_value, resolved_trades FROM trader_stats`).all() as any[];
+          for (const row of simRows) {
+            simTraderEv.set(row.trader, {
+              expectedValue: row.expected_value,
+              confidence: row.resolved_trades < 10 ? "low" : row.resolved_trades < 30 ? "medium" : "high",
+            });
+          }
+          simulateSignal(db, lastInserted.id, signal, simTraderEv);
+        }
+      } catch (e) {
+        // Don't let sim failures crash the bot
+      }
     }
   } catch (err: any) {
     log("FAIL", `Tracker trades error: ${err.message}`);
@@ -425,6 +447,24 @@ function pollTraders(): void {
         if (recentSignals.length > 200) recentSignals.shift();
 
         processSignal(signal);
+
+        // Multi-sim: evaluate this signal against all MK versions
+        try {
+          const lastInserted = db.prepare("SELECT last_insert_rowid() as id").get() as any;
+          if (lastInserted?.id) {
+            const simTraderEv = new Map<string, { expectedValue: number; confidence: string }>();
+            const simRows = db.prepare(`SELECT trader, expected_value, resolved_trades FROM trader_stats`).all() as any[];
+            for (const row of simRows) {
+              simTraderEv.set(row.trader, {
+                expectedValue: row.expected_value,
+                confidence: row.resolved_trades < 10 ? "low" : row.resolved_trades < 30 ? "medium" : "high",
+              });
+            }
+            simulateSignal(db, lastInserted.id, signal, simTraderEv);
+          }
+        } catch (e) {
+          // Don't let sim failures crash the bot
+        }
       }
     } catch (err: any) {
       log("FAIL", `Error polling ${trader.name}: ${err.message}`);
@@ -644,6 +684,7 @@ function refreshPnl(): void {
       } catch (err: any) {
         log("RES", `Resolution scan error: ${err.message}`);
       }
+      try { applyResolutions(db); } catch {}
     }
 
     // ── Recompute trader stats (every 2 hours) ──────────────────
@@ -665,6 +706,10 @@ function refreshPnl(): void {
       } catch (err: any) {
         log("STATS", `Stats recompute error: ${err.message}`);
       }
+      try {
+        computeAllMetrics(db);
+        savePortfolioSnapshots(db);
+      } catch {}
     }
 
     // ── Big loss alerts — position down >70% AND on bigger bets (>=$10) ──
@@ -815,6 +860,7 @@ function startControlServer(): void {
 async function main(): Promise<void> {
   config = loadConfig();
   db = createDb(config.dataDir);
+  seedVersionConfigs(db, VERSIONS);
 
   log("INIT", `Polymarket Copy Bot V2 starting (paper=${config.paperMode})`);
   log("INIT", `Tracking ${config.traders.length} traders, poll every ${config.pollIntervalMs / 1000}s`);
