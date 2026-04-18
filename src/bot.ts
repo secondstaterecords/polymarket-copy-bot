@@ -504,9 +504,15 @@ function refreshPnl(): void {
     log("P&L", `Paper: $${paperPnl.pnl} (${paperPnl.returnPct}%) | Real: $${realPnl.pnl} (${realPnl.returnPct}%) | Capital: $${cap.toFixed(0)} (bal $${usdcBalance.toFixed(0)} + pos $${positionsValue.toFixed(0)}) | Limits: daily $${maxDaily}, mkt $${maxMkt}`);
 
     // ── Drawdown circuit breaker (based on total capital) ────────
-    const today = new Date().toISOString().split("T")[0];
-    if (today !== lastDrawdownReset) {
-      lastDrawdownReset = today;
+    // Reset at 4 AM ET (8 AM UTC) — NOT midnight UTC — so evening US
+    // sports (NBA 7-10:30 PM, MLB, NHL) always fall within the window.
+    const nowUtc = new Date();
+    const resetHour = 8; // 8 AM UTC = 4 AM ET
+    const dayKey = nowUtc.getUTCHours() >= resetHour
+      ? nowUtc.toISOString().split("T")[0]
+      : new Date(nowUtc.getTime() - 86400000).toISOString().split("T")[0];
+    if (dayKey !== lastDrawdownReset) {
+      lastDrawdownReset = dayKey;
       dailyHighWaterMark = activePnl.pnl;
       circuitBreakerTripped = false;
     }
