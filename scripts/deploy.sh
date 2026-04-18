@@ -14,7 +14,7 @@ git push origin main 2>/dev/null && echo "✅ Pushed to GitHub" || echo "⚠️ 
 if [[ "$MODE" == "--bot-only" || "$MODE" == "--all" ]]; then
   echo ""
   echo "📡 Updating Hetzner bot..."
-  ssh jarvis "cd /root/polymarket-copy-bot && git pull origin main && systemctl restart polymarket-bot && systemctl restart polymarket-dashboard && echo '✅ Bot + Dashboard restarted'"
+  ssh jarvis "cd /root/polymarket-copy-bot && git stash -q 2>/dev/null; git checkout -- . 2>/dev/null; git pull origin main && systemctl restart polymarket-bot && systemctl restart polymarket-dashboard && echo '✅ Bot + Dashboard restarted'"
 fi
 
 if [[ "$MODE" == "--site-only" || "$MODE" == "--all" ]]; then
