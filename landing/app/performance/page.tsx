@@ -68,6 +68,18 @@ export default function PerformancePage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [categories, setCategories] = useState<any[]>(fallbackCategories);
 
+  // Access tiers via URL params:
+  //   /performance           → public only
+  //   /performance?sub=1     → public + subscriber
+  //   /performance?key=coattail2026  → public + subscriber + internal (full lab)
+  const [tier, setTier] = useState<"public" | "subscriber" | "internal">("public");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("key") === "coattail2026") setTier("internal");
+    else if (params.get("sub") === "1") setTier("subscriber");
+  }, []);
+
   useEffect(() => {
     // Try fetching live data; fall back silently
     async function load() {
@@ -185,6 +197,22 @@ export default function PerformancePage() {
       <div className="rule mx-8" />
 
       {/* ── 3. Subscriber: Tracked wallets ── */}
+      {tier === "public" && (
+        <section className="py-24 text-center">
+          <div className="mx-auto max-w-xl px-8">
+            <div className="border border-phosphor/20 bg-phosphor/[0.03] backdrop-blur-xl rounded-lg p-12">
+              <div className="mono text-[10px] uppercase tracking-[0.3em] text-phosphor mb-4">Subscriber access</div>
+              <h3 className="display text-3xl text-paper mb-4">See the full picture.</h3>
+              <p className="text-paper-muted text-sm mb-8">Tracked wallets, category performance, and system analytics. Available to Coattail subscribers.</p>
+              <a href="https://buy.stripe.com/eVq5kC5iw7UD1RRbJY0Jq08"
+                className="inline-block bg-phosphor text-ink px-8 py-3 mono text-sm font-bold tracking-wide hover:shadow-[0_0_20px_rgba(64,255,158,0.2)] transition-shadow">
+                Subscribe — $9/mo →
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
+      {(tier === "subscriber" || tier === "internal") && <>
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-8">
           <div className="mono text-[11px] uppercase tracking-[0.3em] text-paper-muted mb-4">
@@ -253,7 +281,10 @@ export default function PerformancePage() {
 
       <div className="rule mx-8" />
 
+      </>}
+
       {/* ── 5. Internal: Suit Lab grid ── */}
+      {tier === "internal" && <>
       <section id="lab" className="py-24">
         <div className="mx-auto max-w-7xl px-8">
           <div className="mono text-[11px] uppercase tracking-[0.3em] text-paper-muted mb-4">
@@ -291,6 +322,8 @@ export default function PerformancePage() {
       </section>
 
       <div className="rule mx-8" />
+
+      </>}
 
       {/* ── 7. CTA ── */}
       <section className="py-24 text-center">
