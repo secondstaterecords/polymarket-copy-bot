@@ -210,6 +210,28 @@ export const VERSIONS: VersionConfig[] = [
     description: "Priority queue — defer <50% confidence trades 60s, execute elite/proven signals immediately",
     status: "testing", trackedTraderCount: 22,
   },
+  {
+    ...BASE, mk: 20, codename: "Reset", commit: "pending", date: "2026-04-20",
+    dedupAcrossTraders: true, adaptiveSizing: false, maxSignalsPerHour: 20,
+    maxPerMarketPct: 3, bypassNoiseForProvenWinners: false,
+    maxDailyExposurePct: 30, bypassDailyCapForProvenWinners: false,
+    provenWinnerStacking: false,
+    eliteTierEnabled: false, eliteTraders: [],
+    hypothesis: "Smaller roster (10 verified) + tighter caps ($3/trade, 30% daily, hard 0.05 price floor) + 7-day resolution limit will outperform wider spray by reducing noise exposure",
+    description: "Hard reset — 10 verified traders, $3/trade, 30% daily cap, price floor 0.05, max 7-day resolution, no elite/stacking multipliers",
+    status: "testing", trackedTraderCount: 10,
+  },
+  {
+    ...BASE, mk: 21, codename: "Mirror", commit: "pending", date: "2026-04-20",
+    dedupAcrossTraders: true, adaptiveSizing: false, maxSignalsPerHour: 20,
+    maxPerMarketPct: 3, bypassNoiseForProvenWinners: false,
+    maxDailyExposurePct: 30, bypassDailyCapForProvenWinners: false,
+    provenWinnerStacking: false,
+    eliteTierEnabled: false, eliteTraders: [],
+    hypothesis: "DB-precheck + fuzzy slug match will recover the 74 missed mirror-sells and close the real-vs-paper PnL gap",
+    description: "Mirror-sell fix — DB precheck on position existence, fuzzy slug match (strip trailing hashes), event_slug fallback, match.slug used for sellMarket",
+    status: "testing", trackedTraderCount: 10,
+  },
 ];
 
 export function getVersion(mk: number): VersionConfig | undefined {
