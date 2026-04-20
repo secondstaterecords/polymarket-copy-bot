@@ -8,65 +8,30 @@ import EvolutionTimeline from "./components/EvolutionTimeline";
 
 const API_BASE = "http://178.104.84.77:3848";
 
-// ── Fallback data so the page always looks populated ──
+// Minimum sample size before we publish a WR number as "real"
+const MIN_RESOLVED_FOR_PUBLISH = 20;
 
-const fallbackVersions: SuitVersion[] = [
-  { mk: 1, codename: "Genesis", status: "RETIRED", date: "2025-12", description: "First copy-trading prototype. Raw signal mirroring, no filters.", win_rate: 38, net_pnl: -12.5, sharpe: 0.2 },
-  { mk: 2, codename: "Sentry", status: "RETIRED", date: "2026-01", description: "Added basic price guards and position limits.", win_rate: 41, net_pnl: -8.3, sharpe: 0.35 },
-  { mk: 3, codename: "Vanguard", status: "RETIRED", date: "2026-01", description: "Multi-wallet roster with equal weighting.", win_rate: 44, net_pnl: -3.1, sharpe: 0.48 },
-  { mk: 4, codename: "Specter", status: "RETIRED", date: "2026-01", description: "Signal-pass filter introduced. Reject noise below threshold.", win_rate: 47, net_pnl: 2.4, sharpe: 0.61 },
-  { mk: 5, codename: "Caliber", status: "RETIRED", date: "2026-02", description: "Confidence scoring per wallet. Hot/cold streaks tracked.", win_rate: 51, net_pnl: 8.7, sharpe: 0.82 },
-  { mk: 6, codename: "Nomad", status: "RETIRED", date: "2026-02", description: "Cross-market category awareness. Sports vs crypto vs politics.", win_rate: 52, net_pnl: 11.2, sharpe: 0.88 },
-  { mk: 7, codename: "Phantom", status: "RETIRED", date: "2026-02", description: "Adaptive position sizing — scale up proven winners.", win_rate: 55, net_pnl: 19.6, sharpe: 1.05 },
-  { mk: 8, codename: "Meridian", status: "RETIRED", date: "2026-02", description: "Drawdown circuit breaker. Auto-pause on losing streaks.", win_rate: 54, net_pnl: 22.1, sharpe: 1.12 },
-  { mk: 9, codename: "Ironclad", status: "RETIRED", date: "2026-03", description: "Portfolio-level risk budgets. Max exposure per category.", win_rate: 58, net_pnl: 31.5, sharpe: 1.31 },
-  { mk: 10, codename: "Vigil", status: "RETIRED", date: "2026-03", description: "Real-time PnL tracking and auto-claim on resolution.", win_rate: 57, net_pnl: 34.8, sharpe: 1.28 },
-  { mk: 11, codename: "Apex", status: "RETIRED", date: "2026-03", description: "Statistical confidence engine v1. Brier-scored wallets.", win_rate: 61, net_pnl: 44.2, sharpe: 1.52 },
-  { mk: 12, codename: "Ember", status: "RETIRED", date: "2026-03", description: "Closing-line value (CLV) tracking. Measure edge at entry.", win_rate: 60, net_pnl: 42.7, sharpe: 1.47 },
-  { mk: 13, codename: "Bastion", status: "RETIRED", date: "2026-03", description: "Kelly criterion sizing with half-Kelly safety margin.", win_rate: 63, net_pnl: 55.3, sharpe: 1.68 },
-  { mk: 14, codename: "Warden", status: "RETIRED", date: "2026-04", description: "Dynamic roster rotation. Weekly wallet audits automated.", win_rate: 65, net_pnl: 64.1, sharpe: 1.79 },
-  { mk: 15, codename: "Crucible", status: "RETIRED", date: "2026-04", description: "Multi-timeframe signal aggregation. Intraday + swing.", win_rate: 64, net_pnl: 61.8, sharpe: 1.73 },
-  { mk: 16, codename: "Horizon", status: "TESTING", date: "2026-04", description: "Self-correcting position management. Auto-hedge on drift.", win_rate: 67, net_pnl: 72.4, sharpe: 1.91 },
-  { mk: 17, codename: "Sovereign", status: "TESTING", date: "2026-04", description: "Cross-market arbitrage detection. Category rotation signals.", win_rate: 69, net_pnl: 81.3, sharpe: 2.04 },
-  { mk: 18, codename: "Architect", status: "DEPLOYED", date: "2026-04", description: "Full autonomous desk. Self-improving model with live feedback loops.", win_rate: 71, net_pnl: 93.7, sharpe: 2.18 },
-];
-
+// Empty initial state — page shows "re-baselining" banners until API populates.
+// No fallback fictional data. Honest numbers or honest absence.
+const emptyVersions: SuitVersion[] = [];
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const fallbackCompare: Record<string, any>[] = [
-  { mk: 1, codename: "Genesis", status: "RETIRED", date: "2025-12", description: "", win_rate: 38, net_pnl: -12.5, sharpe: 0.2, trades_placed: 120, profit_factor: 0.7, sharpe_ratio: 0.2, brier_score: 0.31, max_drawdown: 22.4, avg_return_per_trade: -1.2, sortino_ratio: 0.15, signal_to_trade_ratio: 85.0, tail_ratio: 0.8 },
-  { mk: 5, codename: "Caliber", status: "RETIRED", date: "2026-02", description: "", win_rate: 51, net_pnl: 8.7, sharpe: 0.82, trades_placed: 94, profit_factor: 1.15, sharpe_ratio: 0.82, brier_score: 0.24, max_drawdown: 14.1, avg_return_per_trade: 0.9, sortino_ratio: 0.71, signal_to_trade_ratio: 42.0, tail_ratio: 1.1 },
-  { mk: 9, codename: "Ironclad", status: "RETIRED", date: "2026-03", description: "", win_rate: 58, net_pnl: 31.5, sharpe: 1.31, trades_placed: 78, profit_factor: 1.45, sharpe_ratio: 1.31, brier_score: 0.19, max_drawdown: 9.8, avg_return_per_trade: 2.1, sortino_ratio: 1.18, signal_to_trade_ratio: 18.0, tail_ratio: 1.4 },
-  { mk: 14, codename: "Warden", status: "RETIRED", date: "2026-04", description: "", win_rate: 65, net_pnl: 64.1, sharpe: 1.79, trades_placed: 62, profit_factor: 1.82, sharpe_ratio: 1.79, brier_score: 0.15, max_drawdown: 6.3, avg_return_per_trade: 3.8, sortino_ratio: 1.65, signal_to_trade_ratio: 8.5, tail_ratio: 1.7 },
-  { mk: 18, codename: "Architect", status: "DEPLOYED", date: "2026-04", description: "", win_rate: 71, net_pnl: 93.7, sharpe: 2.18, trades_placed: 48, profit_factor: 2.31, sharpe_ratio: 2.18, brier_score: 0.11, max_drawdown: 4.1, avg_return_per_trade: 5.6, sortino_ratio: 2.05, signal_to_trade_ratio: 3.2, tail_ratio: 2.1 },
-];
-
-const fallbackWallets = [
-  { id: "WALLET-A", category: "Sports", win_rate: 92, pnl: 213, trades: 36 },
-  { id: "WALLET-B", category: "Crypto", win_rate: 71, pnl: 147, trades: 14 },
-  { id: "WALLET-C", category: "Sports", win_rate: 57, pnl: 66, trades: 7 },
-  { id: "WALLET-D", category: "Politics", win_rate: 44, pnl: 36, trades: 9 },
-  { id: "WALLET-E", category: "Sports", win_rate: 80, pnl: 75, trades: 5 },
-];
-
-const fallbackCategories = [
-  { name: "NBA", win_rate: 68, trades: 42 },
-  { name: "NHL", win_rate: 61, trades: 18 },
-  { name: "MLB", win_rate: 55, trades: 12 },
-  { name: "EPL", win_rate: 72, trades: 8 },
-  { name: "Crypto", win_rate: 64, trades: 22 },
-  { name: "Politics", win_rate: 44, trades: 9 },
-];
+const emptyCompare: Record<string, any>[] = [];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const emptyWallets: any[] = [];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const emptyCategories: any[] = [];
 
 // ── Page ──
 
 export default function PerformancePage() {
-  const [versions, setVersions] = useState<SuitVersion[]>(fallbackVersions);
+  const [versions, setVersions] = useState<SuitVersion[]>(emptyVersions);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [compare, setCompare] = useState<Record<string, any>[]>(fallbackCompare);
+  const [compare, setCompare] = useState<Record<string, any>[]>(emptyCompare);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [wallets, setWallets] = useState<any[]>(fallbackWallets);
+  const [wallets, setWallets] = useState<any[]>(emptyWallets);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [categories, setCategories] = useState<any[]>(fallbackCategories);
+  const [categories, setCategories] = useState<any[]>(emptyCategories);
+  const [dataState, setDataState] = useState<"loading" | "live" | "insufficient" | "error">("loading");
 
   // Access tiers via URL params:
   //   /performance           → public only
@@ -90,6 +55,7 @@ export default function PerformancePage() {
           fetch(`${API_BASE}/api/lab/versions`),
         ]);
 
+        let totalResolved = 0;
         if (subR.status === "fulfilled" && subR.value.ok) {
           const d = await subR.value.json();
           if (d.traderLeaderboard?.length) setWallets(d.traderLeaderboard);
@@ -100,6 +66,7 @@ export default function PerformancePage() {
               description: v.description,
               status: (v.status || "retired").toUpperCase(),
               win_rate: v.winRate ?? null, net_pnl: v.netPnl ?? null, sharpe: v.sharpe ?? null,
+              resolved: v.resolved ?? null,
             })));
           }
         }
@@ -113,21 +80,27 @@ export default function PerformancePage() {
               win_rate: v.metrics?.win_rate?.value ?? null,
               net_pnl: v.metrics?.net_pnl?.value ?? null,
               sharpe: v.metrics?.sharpe_ratio?.value ?? null,
+              resolved: v.metrics?.win_rate?.sampleSize ?? 0,
             })));
             const keyMks = [1, 5, 9, 11, 14, 17, 18];
             setCompare(d.filter((v: any) => keyMks.includes(v.mk)));
+            totalResolved = d.reduce((acc: number, v: any) => Math.max(acc, v.metrics?.win_rate?.sampleSize ?? 0), 0);
           }
         }
+        setDataState(totalResolved >= MIN_RESOLVED_FOR_PUBLISH ? "live" : "insufficient");
       } catch {
-        // use fallback data
+        setDataState("error");
       }
     }
     load();
   }, []);
 
   const deployed = versions.find((v) => v.status === "DEPLOYED");
-  const latestWr = deployed?.win_rate ?? versions[versions.length - 1]?.win_rate ?? 71;
-  const firstWr = versions[0]?.win_rate ?? 38;
+  const deployedResolved = (deployed as any)?.resolved ?? 0;
+  const hasEnoughData = deployedResolved >= MIN_RESOLVED_FOR_PUBLISH;
+  const latestWr = hasEnoughData ? (deployed?.win_rate ?? null) : null;
+  const firstWr = versions[0]?.win_rate ?? null;
+  const winRateGain = latestWr !== null && firstWr !== null ? Math.round(latestWr - firstWr) : null;
 
   return (
     <main className="relative z-10 min-h-screen">
@@ -162,13 +135,25 @@ export default function PerformancePage() {
             to <span className="italic text-phosphor glow">improve.</span>
           </h1>
 
+          {/* Honesty banner when sample too small */}
+          {dataState === "insufficient" && (
+            <div className="rise mt-8 border border-gold/30 bg-gold/5 px-5 py-3 mono text-[11px] uppercase tracking-[0.2em] text-gold">
+              ● Re-baselining in progress · sample size below {MIN_RESOLVED_FOR_PUBLISH} resolved markets · numbers below refresh as data arrives
+            </div>
+          )}
+          {dataState === "error" && (
+            <div className="rise mt-8 border border-paper-muted/30 bg-paper-muted/5 px-5 py-3 mono text-[11px] uppercase tracking-[0.2em] text-paper-muted">
+              ● API unreachable · showing zero state
+            </div>
+          )}
+
           {/* Stat boxes */}
           <div className="rise mt-16 grid grid-cols-2 gap-4 md:grid-cols-4" style={{ animationDelay: "0.3s" }}>
             {[
-              { label: "Versions built", value: String(versions.length), color: "text-paper" },
-              { label: "Win rate gain", value: `+${latestWr - firstWr}pp`, color: "text-phosphor" },
-              { label: "Markets resolved", value: "229+", color: "text-paper" },
-              { label: "Current Sharpe", value: deployed?.sharpe?.toFixed(2) ?? "2.18", color: "text-gold" },
+              { label: "Versions built", value: String(versions.length || 0), color: "text-paper" },
+              { label: "Win rate gain", value: winRateGain !== null ? `+${winRateGain}pp` : "—", color: "text-phosphor" },
+              { label: "Markets resolved", value: deployedResolved > 0 ? `${deployedResolved}` : "—", color: "text-paper" },
+              { label: "Current Sharpe", value: hasEnoughData && deployed?.sharpe != null ? deployed.sharpe.toFixed(2) : "—", color: "text-gold" },
             ].map((s) => (
               <div key={s.label} className="border border-paper/[0.06] bg-ink/50 backdrop-blur-xl p-6">
                 <div className="mono text-[9px] uppercase tracking-widest text-paper-muted">{s.label}</div>

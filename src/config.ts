@@ -2,6 +2,8 @@ export interface TraderConfig {
   name: string;
   address: string;
   categories?: string[];
+  tier?: "core" | "sniper" | "watch"; // core = daily leaderboard + resolutions, sniper = low-vol high-WR rare, watch = evaluating
+  sniperBetUsd?: number; // fixed $ per trade if tier=sniper (overrides tradeAmountUsd)
 }
 
 export interface FilterConfig {
@@ -40,36 +42,35 @@ export interface BotConfig {
   useTracker: boolean;  // Use 'bullpen tracker trades' instead of individual polling
 }
 
-// Top 22 active traders this week by P&L (Bullpen leaderboard --period week, filtered for actual volume)
-// Bot computes per-trader win rate/EV and auto-scales bets. Low-EV traders get 0.5x,
-// high-EV traders get 2x — no manual pruning needed.
-// Last updated: 2026-04-16
+// Trader roster — auto-refreshed daily by scripts/refresh-traders.ts
+// Composite score = 0.5*(24h PnL rank) + 0.3*(7d PnL rank) + 0.2*(lifetime rank)
+// Core = daily top-30 leaderboard + positive 7d WR in our DB
+// Sniper = low volume (<$100K weekly), >70% WR in profile, rare entries — flat $5 bet
+// Watch = new candidates, not yet trading, observing for 3 days before promoting
+// Last refreshed: 2026-04-19 (manual reset after mk-version audit)
 export const DEFAULT_TRADERS: TraderConfig[] = [
-  // Original core — stats already building
-  { name: "0x4924", address: "0x492442eab586f242b53bda933fd5de859c8a3782", categories: ["sports"] },
-  { name: "beachboy4", address: "0xc2e7800b5af46e6093872b177b7a5e7f0563be51", categories: ["sports"] },
-  { name: "Countryside", address: "0xbddf61af533ff524d27154e589d2d7a81510c684", categories: ["sports"] },
-  { name: "RN1", address: "0x2005d16a84ceefa912d4e380cd32e7ff827875ea", categories: ["sports", "politics"] },
-  { name: "sovereign2013", address: "0xee613b3fc183ee44f9da9c05f53e2da107e3debf", categories: ["politics"] },
-  { name: "0x2a2c", address: "0x2a2c53bd278c04da9962fcf96490e17f3dfb9bc1", categories: ["sports"] },
-  { name: "texaskid", address: "0xc8075693f48668a264b9fa313b47f52712fcc12b", categories: ["sports"] },
-  { name: "swisstony", address: "0x204f72f35326db932158cba6adff0b9a1da95e14", categories: ["sports"] },
-  { name: "mhh29", address: "0x63a51cbb37341837b873bc29d05f482bc2988e33" },
-  { name: "JPMorgan101", address: "0xb6d6e99d3bfe055874a04279f659f009fd57be17" },
-  { name: "elkmonkey", address: "0xead152b855effa6b5b5837f53b24c0756830c76a" },
-  { name: "kch123", address: "0x6a72f61820b26b1fe4d956e17b6dc2a1ea3033ee" },
-  { name: "Mentallyillgambld", address: "0x2b3ff45c91540e46fae1e0c72f61f4b049453446", categories: ["sports"] },
-  { name: "bcda", address: "0xb45a797faa52b0fd8adc56d30382022b7b12192c", categories: ["sports"] },
-  { name: "weflyhigh", address: "0x03e8a544e97eeff5753bc1e90d46e5ef22af1697" },
-  // New additions — top 30 leaderboard with real volume (>$1M weekly)
-  { name: "GamblingIsAllYouNeed", address: "0x507e52ef684ca2dd91f90a9d26d149dd3288beae", categories: ["sports"] }, // $15M vol
-  { name: "bossoskil1", address: "0xa5ea13a81d2b7e8e424b182bdc1db08e756bd96a", categories: ["sports"] }, // $7M vol
-  { name: "denizz", address: "0xbaa2bcb5439e985ce4ccf815b4700027d1b92c73", categories: ["sports"] }, // $3.5M vol
-  { name: "Cannae", address: "0x7ea571c40408f340c1c8fc8eaacebab53c1bde7b", categories: ["sports"] }, // $3.2M vol
-  { name: "CarlosMC", address: "0x777d9f00c2b4f7b829c9de0049ca3e707db05143", categories: ["sports"] }, // $1.9M vol
-  { name: "gatorr", address: "0x93abbc022ce98d6f45d4444b594791cc4b7a9723", categories: ["sports"] }, // $1.2M vol
-  { name: "SecondWindCapital", address: "0x8c80d213c0cbad777d06ee3f58f6ca4bc03102c3", categories: ["sports"] }, // $432K vol
+  // CORE — verified on today's leaderboard (24h) AND in trader_stats with resolutions
+  { name: "0x2a2c", address: "0x2a2c53bd278c04da9962fcf96490e17f3dfb9bc1", categories: ["sports"], tier: "core" }, // lifetime #4, today #3, +$288K/24h
+  { name: "elkmonkey", address: "0xead152b855effa6b5b5837f53b24c0756830c76a", tier: "core" }, // today #2, +$314K/24h, $1.8M vol
+  { name: "RN1", address: "0x2005d16a84ceefa912d4e380cd32e7ff827875ea", categories: ["sports", "politics"], tier: "core" }, // today #12, +$136K/24h
+  { name: "texaskid", address: "0xc8075693f48668a264b9fa313b47f52712fcc12b", categories: ["sports"], tier: "core" }, // today #5, +$246K/24h
+  { name: "CarlosMC", address: "0x777d9f00c2b4f7b829c9de0049ca3e707db05143", categories: ["sports"], tier: "core" }, // today #4, +$272K/24h
+  { name: "Countryside", address: "0xbddf61af533ff524d27154e589d2d7a81510c684", categories: ["sports"], tier: "core" }, // today #7, +$183K/24h
+
+  // WATCH — fresh on today's leaderboard, no history in our DB, $5 flat bet for 3 days then promote/drop
+  { name: "0xE16D3F2A", address: "0xe16d3f2a5807999b358affd9445c3a09e45e5e30", categories: ["sports"], tier: "watch", sniperBetUsd: 3 }, // today #6, +$204K, $1.3M vol
+  { name: "JuicySlots", address: "0x47a83fb1debcd11cc93f3bbbf5aeb3a5caeb52f9", categories: ["sports"], tier: "watch", sniperBetUsd: 3 }, // today #9, +$144K
+  { name: "elshark206", address: "0x0eb75bf6f54794a83bd26095811f30b530161f17", categories: ["sports"], tier: "watch", sniperBetUsd: 3 }, // today #11, +$137K
+  { name: "CemeterySun", address: "0x37c1874a60d348903594a96703e0507c518fc53a", categories: ["sports"], tier: "watch", sniperBetUsd: 3 }, // today #18, $4.2M vol — consistent whale
+
+  // SNIPERS — to be populated by scripts/refresh-traders.ts sniper-scan
+  // Criteria: <100 trades lifetime, >70% WR, >$50K PnL, <$100K weekly volume
 ];
+
+// Dropped (2026-04-19 reset): 0x4924, beachboy4, sovereign2013 (dormant 3d), swisstony,
+// mhh29, JPMorgan101, kch123, Mentallyillgambld, bcda, weflyhigh, GamblingIsAllYouNeed
+// (50 signals/hr noise), bossoskil1, denizz, Cannae, gatorr, SecondWindCapital
+// Reason: either 0 resolutions in our DB, <50% recent WR, or dropped off top-30 leaderboard.
 
 export const DEFAULT_CONFIG: BotConfig = {
   pollIntervalMs: 30_000,
@@ -79,24 +80,24 @@ export const DEFAULT_CONFIG: BotConfig = {
   dataDir: process.env.DATA_DIR || ".",
   traders: DEFAULT_TRADERS,
   filters: {
-    minPrice: 0.10,
+    minPrice: 0.05,              // HARDENED 2026-04-19 — was 0.10 with a bypass that let 0.6¢ through on moonshots
     maxPrice: 0.85,
     minTraderAmount: 10,
-    maxDaysToResolution: 30,
+    maxDaysToResolution: 7,      // TIGHTENED 2026-04-19 — was 30d, forces short-res markets for sell-signal observability
     minHoursToResolution: 2,
     requireMultiWallet: false,
     multiWalletWindow: 30,
     newPositionsOnly: true,
-    maxTraderSignalsPerHour: 20,  // Traders sending 20+ signals/hr are algorithmic noise
-    dedupAcrossTraders: true,     // Only one position per market across all traders
+    maxTraderSignalsPerHour: 20, // Traders sending 20+/hr are noise
+    dedupAcrossTraders: true,    // One position per market across all traders (MK13 — only confirmed-effective change)
   },
   risk: {
-    tradeAmountUsd: 5,           // Base trade size — adaptive sizing multiplies by 0.5-2x based on trader EV
-    maxPerMarketPct: 5,          // Max 5% of capital per market (pro bettor standard)
-    maxDailyExposurePct: 75,     // Max 75% of capital deployed per day (raised from 40 — don't starve winning signals)
-    maxDrawdownPct: 20,          // Circuit breaker at 20% drawdown from daily high
-    fallbackCapital: 120,        // Fallback if balance check fails ($)
-    takeProfitPct: 900,          // Auto-sell when position is up 900%+ (safety net for moonshots)
+    tradeAmountUsd: 3,           // REDUCED 2026-04-19 — was $5, lowered while trust-rebuilding
+    maxPerMarketPct: 3,          // REDUCED 2026-04-19 — was 5%
+    maxDailyExposurePct: 30,     // REDUCED 2026-04-19 — was 75%, preserve dry powder
+    maxDrawdownPct: 15,          // TIGHTENED — was 20%
+    fallbackCapital: 120,
+    takeProfitPct: 900,
   },
   paperMode: false,  // LIVE TRADING — real money
   useTracker: false,  // Disabled: tracker trades hangs (auth issue). Using individual polling instead.
