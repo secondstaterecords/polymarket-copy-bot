@@ -99,7 +99,7 @@ export const DEFAULT_CONFIG: BotConfig = {
     fallbackCapital: 120,
     takeProfitPct: 900,
   },
-  paperMode: false,  // LIVE TRADING — real money
+  paperMode: true,   // PAPER MODE — 2026-04-19 24h test run with trimmed roster + mirror-sell fix
   useTracker: false,  // Disabled: tracker trades hangs (auth issue). Using individual polling instead.
 };
 

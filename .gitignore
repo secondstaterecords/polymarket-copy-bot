@@ -25,3 +25,5 @@ credentials.json
 # Local Netlify folder
 .netlify
 bullpen-session.json
+seen-trades-v2.json.8MB-backup
+bot-v2.log.*

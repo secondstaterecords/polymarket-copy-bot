@@ -288,40 +288,66 @@ function handleBuy(signal: TradeSignal): void {
 
 function handleSell(signal: TradeSignal): void {
   if (!config.paperMode) {
-    // Check real positions
-    const positions = getPositions();
-    const match = positions.find(
-      (p: any) => (p.slug === signal.slug || p.market === signal.slug) && p.outcome === signal.outcome,
-    );
-    if (match) {
-      const totalShares = match.shares || match.size || 0;
-      // Sell all shares — if the trader we're copying sold, we should exit too
-      const sharesToSell = Math.round(totalShares * 100) / 100; // round to 2 decimals, not floor
-      if (sharesToSell > 0) {
-        const result = sellMarket(signal.slug, signal.outcome, sharesToSell);
-        if (result.success) {
-          log("SELL", `${signal.traderName} ${signal.slug}:${signal.outcome} ${sharesToSell} shares`);
-          insertTrade(db, {
-            timestamp: new Date().toISOString(),
-            trader: signal.traderName,
-            traderAddress: signal.traderAddress,
-            action: "SELL",
-            market: signal.slug,
-            slug: signal.slug,
-            outcome: signal.outcome,
-            traderAmount: signal.traderAmount,
-            ourAmount: 0,
-            entryPrice: signal.price,
-            paperShares: sharesToSell,
-            status: "success",
-            result: result.stdout,
-            isReal: true,
-          });
-          seenPositions.delete(`${signal.traderName}:${signal.slug}:${signal.outcome}`);
-          saveSeenTrades();
-          return;
+    // First check DB: did WE ever really buy this exact market from this trader?
+    // This filters out 99% of sells for positions we don't hold, so we don't
+    // hammer getPositions() on every tracker sell noise.
+    const ourBuy = db.prepare(
+      `SELECT id, paper_shares, our_amount FROM trades
+       WHERE slug = ? AND outcome = ? AND action = 'BUY' AND is_real = 1 AND status = 'success'
+       ORDER BY timestamp DESC LIMIT 1`
+    ).get(signal.slug, signal.outcome) as any;
+
+    if (!ourBuy) {
+      // We never held this — normal paper sell
+    } else {
+      // We have (or had) a real position. Try to sell.
+      const positions = getPositions();
+
+      // Match by slug + outcome, OR by condition_id if slug differs
+      // (Bullpen can return different slug formats for the same market)
+      const match = positions.find((p: any) => {
+        if (p.outcome !== signal.outcome) return false;
+        if (p.slug === signal.slug) return true;
+        if (p.event_slug === signal.slug) return true;
+        // Fuzzy: strip trailing numbers/hashes Bullpen appends
+        const normalize = (s: string) => (s || "").replace(/-\d+(-\d+)*$/, "").toLowerCase();
+        return normalize(p.slug) === normalize(signal.slug);
+      });
+
+      if (!match) {
+        // Dump state so we can diagnose post-hoc
+        log("SELL_NO_MATCH", `${signal.traderName} wanted to sell ${signal.slug}:${signal.outcome} but no current position matched`);
+        log("SELL_NO_MATCH_POSITIONS", `Current slugs: ${positions.slice(0, 10).map((p: any) => `${p.slug}:${p.outcome}`).join(", ")}`);
+        // Fall through to paper record so we still log the trader signal
+      } else {
+        const totalShares = match.shares || match.size || 0;
+        const sharesToSell = Math.round(totalShares * 100) / 100;
+        if (sharesToSell > 0) {
+          const result = sellMarket(match.slug, match.outcome, sharesToSell);
+          if (result.success) {
+            log("SELL", `${signal.traderName} ${match.slug}:${match.outcome} ${sharesToSell} shares (matched on ${match.slug === signal.slug ? "slug" : "fuzzy"})`);
+            insertTrade(db, {
+              timestamp: new Date().toISOString(),
+              trader: signal.traderName,
+              traderAddress: signal.traderAddress,
+              action: "SELL",
+              market: match.slug,
+              slug: match.slug,
+              outcome: match.outcome,
+              traderAmount: signal.traderAmount,
+              ourAmount: 0,
+              entryPrice: signal.price,
+              paperShares: sharesToSell,
+              status: "success",
+              result: result.stdout,
+              isReal: true,
+            });
+            seenPositions.delete(`${signal.traderName}:${signal.slug}:${signal.outcome}`);
+            saveSeenTrades();
+            return;
+          }
+          log("FAIL", `Real sell failed: ${result.error}`);
         }
-        log("FAIL", `Real sell failed: ${result.error}`);
       }
     }
   }

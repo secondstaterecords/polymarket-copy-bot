@@ -117,8 +117,9 @@ export default function PerformancePage() {
           </a>
           <nav className="flex items-center gap-8 mono text-xs uppercase tracking-wider text-paper-muted">
             <a href="/" className="hover:text-phosphor transition-colors">home</a>
-            <a href="#lab" className="hover:text-phosphor transition-colors">lab</a>
-            <a href="#compare" className="hover:text-phosphor transition-colors">compare</a>
+            <a href="#future" className="hover:text-phosphor transition-colors">in&nbsp;the&nbsp;lab</a>
+            {tier === "internal" && <a href="#lab" className="hover:text-phosphor transition-colors">lab</a>}
+            {tier === "internal" && <a href="#compare" className="hover:text-phosphor transition-colors">compare</a>}
           </nav>
         </div>
       </header>
@@ -309,6 +310,79 @@ export default function PerformancePage() {
       <div className="rule mx-8" />
 
       </>}
+
+      {/* ── 6.5. Future Models — public teaser, obfuscated config ── */}
+      <section id="future" className="py-24">
+        <div className="mx-auto max-w-7xl px-8">
+          <div className="mono text-[11px] uppercase tracking-[0.3em] text-paper-muted mb-4">
+            · In the lab
+          </div>
+          <h2 className="display text-5xl text-paper mb-4">
+            Currently <span className="italic text-phosphor">cooking.</span>
+          </h2>
+          <p className="text-paper-muted mb-12 max-w-2xl">
+            Versions under active paper-testing. Configs stay private — performance is public.
+          </p>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {versions.filter((v) => v.status === "TESTING" || (v.status as string) === "STAGING").slice(0, 6).map((v) => {
+              const resolved = (v as any).resolved ?? 0;
+              const trustworthy = resolved >= MIN_RESOLVED_FOR_PUBLISH;
+              const wr = v.win_rate;
+              const pnl = v.net_pnl;
+              const sharpe = v.sharpe;
+              return (
+                <div key={v.mk} className="border border-phosphor/20 bg-phosphor/[0.03] backdrop-blur-xl p-6 rounded-sm">
+                  <div className="flex items-baseline justify-between mb-3">
+                    <div className="mono text-[10px] uppercase tracking-[0.3em] text-phosphor">
+                      MK-{String(v.mk).padStart(2, "0")} · {v.status}
+                    </div>
+                    <div className="mono text-[9px] text-paper-muted">{v.date}</div>
+                  </div>
+                  <h3 className="display text-2xl text-paper mb-2">{v.codename}</h3>
+                  {/* Tagline only — no filter/trader/threshold specifics */}
+                  <p className="text-sm text-paper-muted mb-5 italic">Hypothesis confidential · observing {resolved} resolutions</p>
+
+                  <div className="grid grid-cols-3 gap-2 mt-6 pt-4 border-t border-paper/[0.08]">
+                    <div>
+                      <div className="mono text-[9px] uppercase text-paper-muted">WR</div>
+                      <div className={`mono text-lg tabular-nums ${trustworthy && wr != null && wr > 0.55 ? "text-phosphor" : "text-paper-muted"}`}>
+                        {trustworthy && wr != null ? `${(wr * 100).toFixed(0)}%` : "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mono text-[9px] uppercase text-paper-muted">PnL</div>
+                      <div className={`mono text-lg tabular-nums ${trustworthy && pnl != null && pnl > 0 ? "text-phosphor" : trustworthy && pnl != null && pnl < 0 ? "text-blood" : "text-paper-muted"}`}>
+                        {trustworthy && pnl != null ? (pnl > 0 ? "+" : "") + `$${pnl.toFixed(0)}` : "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mono text-[9px] uppercase text-paper-muted">Sharpe</div>
+                      <div className={`mono text-lg tabular-nums ${trustworthy && sharpe != null && sharpe > 1 ? "text-gold" : "text-paper-muted"}`}>
+                        {trustworthy && sharpe != null ? sharpe.toFixed(1) : "—"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {!trustworthy && (
+                    <div className="mono text-[9px] uppercase text-gold/60 mt-3">
+                      ● insufficient sample · n={resolved}/{MIN_RESOLVED_FOR_PUBLISH}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {versions.filter((v) => v.status === "TESTING" || (v.status as string) === "STAGING").length === 0 && (
+            <div className="border border-paper/[0.08] p-12 text-center text-paper-muted mono text-xs uppercase tracking-[0.2em]">
+              No versions currently in testing
+            </div>
+          )}
+        </div>
+      </section>
+
+      <div className="rule mx-8" />
 
       {/* ── 7. CTA ── */}
       <section className="py-24 text-center">
