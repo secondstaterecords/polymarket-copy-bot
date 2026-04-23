@@ -69,13 +69,17 @@ Evidence this already happened: MK20 config sets `maxPerMarketPct: 3` and `maxDa
 
 6. **[1 hr] Add `config_fingerprint` hash to each VersionConfig** — SHA of all behavior-affecting fields. If two MKs have identical fingerprints, fail CI — forces new MKs to either change a real knob or not be a new MK.
 
-## Minimum bar before any live flip
+## Minimum bar before any live flip — enforced, not aspirational
 
-Per-MK, no exceptions:
-- `sample_size ≥ 100 resolved` in the `win_rate` metric row
-- `config_fingerprint` differs from all previously-deployed MKs
-- If MK adds a new flag, sim-engine grep must show the flag is read
-- Offline replay script for MK21-class bot-level fixes: feeds the last 500 real SELL signals through the fixed matcher against reconstructed historical positions, reports match rate
+Prior art (`~/.claude/learnings/ai-systems-engineering.md` 2026-04-19): soft instructions drift, hooks enforce. This bar must be a script that exits nonzero, not a paragraph.
+
+Deliverable: `scripts/preflight-live.ts` that checks, per-MK with `status: "deployed"` or transitioning to it:
+- `sample_size ≥ 100` in the `win_rate` row of `sim_metrics`
+- `config_fingerprint` (SHA of behavior-affecting fields) differs from every previously-deployed MK
+- Every non-meta field in `VersionConfig` has at least one grep hit outside `versions.ts` (kills dead knobs)
+- For bot-level fixes (MK21-class), a companion `tests/replay-<feature>.test.ts` exists and passes, feeding ≥500 historical signals through the fix path
+
+Wire it into `scripts/deploy.sh` as a mandatory precondition when flipping `paperMode: false`. Never ship a flag-flip commit that bypasses it.
 
 ## Next actions
 
