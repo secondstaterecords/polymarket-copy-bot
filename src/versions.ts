@@ -253,7 +253,3 @@ export function getDeployedVersion(): VersionConfig {
   }
   return deployed[0];
 }
-
-export function getDeployedVersion(): VersionConfig {
-  return VERSIONS.find(v => v.status === "deployed") || VERSIONS[VERSIONS.length - 1];
-}
