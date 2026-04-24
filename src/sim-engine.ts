@@ -1,7 +1,7 @@
 // src/sim-engine.ts
 // Evaluates each incoming signal against all MK version configs.
 // Records per-version decisions to sim_results table.
-// Maintains virtual portfolios per version.
+// Maintains virtual portfolios per version — including sell handling and drawdown tracking.
 
 import Database from "better-sqlite3";
 import { VERSIONS, VersionConfig } from "./versions";
@@ -11,9 +11,13 @@ import { insertSimResult, insertSimPortfolioSnapshot } from "./db";
 interface VirtualPortfolio {
   mk: number;
   cash: number;
-  positions: Map<string, { shares: number; entry: number; amount: number }>;
+  positions: Map<string, { shares: number; entry: number; amount: number; slug: string; outcome: string }>;
   dailySpend: Map<string, number>;
   signalsByHour: Map<string, number[]>;
+  // Per-MK drawdown tracking — mirrors bot.ts circuit-breaker logic in paper.
+  dailyHighWaterMark: number;
+  lastDrawdownReset: string;
+  circuitBreakerTripped: boolean;
 }
 
 const portfolios = new Map<number, VirtualPortfolio>();
@@ -27,9 +31,97 @@ function getOrCreatePortfolio(mk: number): VirtualPortfolio {
       positions: new Map(),
       dailySpend: new Map(),
       signalsByHour: new Map(),
+      dailyHighWaterMark: 0,
+      lastDrawdownReset: "",
+      circuitBreakerTripped: false,
     });
   }
   return portfolios.get(mk)!;
+}
+
+// Normalize a slug for fuzzy matching: lowercase + strip trailing -digits
+// groups (Bullpen sometimes appends -NNN hashes). Mirrors bot.ts:313.
+function normalizeSlug(s: string): string {
+  return (s || "").replace(/-\d+(-\d+)*$/, "").toLowerCase();
+}
+
+// Current-day key for drawdown reset (4 AM ET = 8 AM UTC, matches bot.ts:576)
+function currentDayKey(): string {
+  const now = new Date();
+  const resetHour = 8;
+  const d = now.getUTCHours() >= resetHour
+    ? now
+    : new Date(now.getTime() - 86400000);
+  return d.toISOString().split("T")[0];
+}
+
+// Update drawdown state and return whether circuit breaker is currently tripped.
+function updateDrawdown(portfolio: VirtualPortfolio, version: VersionConfig): boolean {
+  let positionsValue = 0;
+  for (const pos of portfolio.positions.values()) positionsValue += pos.amount;
+  const equity = portfolio.cash + positionsValue;
+
+  const dayKey = currentDayKey();
+  if (dayKey !== portfolio.lastDrawdownReset) {
+    portfolio.lastDrawdownReset = dayKey;
+    portfolio.dailyHighWaterMark = equity;
+    portfolio.circuitBreakerTripped = false;
+  }
+  if (equity > portfolio.dailyHighWaterMark) portfolio.dailyHighWaterMark = equity;
+
+  const drawdownFromHwm = portfolio.dailyHighWaterMark - equity;
+  const maxDrawdown = (version.maxDrawdownPct / 100) * STARTING_CAPITAL;
+  if (drawdownFromHwm > maxDrawdown && !portfolio.circuitBreakerTripped) {
+    portfolio.circuitBreakerTripped = true;
+  } else if (portfolio.circuitBreakerTripped && drawdownFromHwm <= maxDrawdown * 0.5) {
+    portfolio.circuitBreakerTripped = false;
+  }
+  return portfolio.circuitBreakerTripped;
+}
+
+// Sell-match result. reason encodes match type for analysis.
+type SellResult =
+  | { sold: true; type: "exact" | "fuzzy"; shares: number; proceeds: number }
+  | { sold: false; type: "no-position" | "miss" };
+
+function tryMatchSell(
+  portfolio: VirtualPortfolio,
+  version: VersionConfig,
+  signal: TradeSignal,
+): SellResult {
+  const exactKey = `${signal.slug}:${signal.outcome}`;
+  const exact = portfolio.positions.get(exactKey);
+  if (exact) {
+    const proceeds = exact.shares * signal.price;
+    portfolio.cash += proceeds;
+    portfolio.positions.delete(exactKey);
+    return { sold: true, type: "exact", shares: exact.shares, proceeds };
+  }
+
+  // Older MKs give up here — exact miss = no sell.
+  if (!version.mirrorSellFuzzyMatch) {
+    // Check if we have ANY position on this outcome with different slug.
+    // If yes, MK21-fix would recover it; older MKs don't — record as miss.
+    for (const [k, pos] of portfolio.positions.entries()) {
+      if (pos.outcome === signal.outcome && normalizeSlug(pos.slug) === normalizeSlug(signal.slug)) {
+        return { sold: false, type: "miss" };
+      }
+    }
+    return { sold: false, type: "no-position" };
+  }
+
+  // MK21+: fuzzy match on normalized slug + outcome
+  const normTarget = normalizeSlug(signal.slug);
+  for (const [k, pos] of portfolio.positions.entries()) {
+    if (pos.outcome !== signal.outcome) continue;
+    if (normalizeSlug(pos.slug) === normTarget) {
+      const proceeds = pos.shares * signal.price;
+      portfolio.cash += proceeds;
+      portfolio.positions.delete(k);
+      return { sold: true, type: "fuzzy", shares: pos.shares, proceeds };
+    }
+  }
+  return { sold: false, type: "no-position" };
 }
 
 function evaluateSignal(
@@ -40,7 +132,15 @@ function evaluateSignal(
 ): { decision: "trade" | "skip"; reason: string; amount: number } {
 
   if (signal.side === "SELL") {
-    return { decision: "trade", reason: "sell signal", amount: 0 };
+    // Sells are handled in simulateSignal via tryMatchSell; evaluateSignal just
+    // records that a sell signal was processed — the action/reason is filled in
+    // by the caller based on match outcome.
+    return { decision: "trade", reason: "sell-pending-match", amount: 0 };
+  }
+
+  // Circuit-breaker check — blocks new buys when drawdown exceeds maxDrawdownPct.
+  if (updateDrawdown(portfolio, version)) {
+    return { decision: "skip", reason: "circuit-breaker: daily drawdown exceeded", amount: 0 };
   }
 
   const ev = traderEv.get(signal.traderName);
@@ -105,6 +205,20 @@ export function simulateSignal(
 ): void {
   for (const version of VERSIONS) {
     const portfolio = getOrCreatePortfolio(version.mk);
+
+    // SELL handling — per-MK sell-match logic. This is where MK21's fuzzy match
+    // actually differs from earlier MKs in the paper sim.
+    if (signal.side === "SELL") {
+      const sellResult = tryMatchSell(portfolio, version, signal);
+      const reason = sellResult.sold
+        ? `sold-${sellResult.type}:${sellResult.shares.toFixed(2)}sh@${signal.price}→$${sellResult.proceeds.toFixed(2)}`
+        : `sell-${sellResult.type}`;
+      insertSimResult(db, signalId, version.mk, "trade", reason,
+        sellResult.sold ? -sellResult.proceeds : null,
+        sellResult.sold ? -sellResult.shares : null);
+      continue;
+    }
+
     const result = evaluateSignal(signal, version, portfolio, traderEv);
 
     if (result.decision === "trade" && signal.side === "BUY" && result.amount > 0) {
@@ -116,7 +230,10 @@ export function simulateSignal(
         existing.shares += shares;
         existing.amount += result.amount;
       } else {
-        portfolio.positions.set(marketKey, { shares, entry: signal.price, amount: result.amount });
+        portfolio.positions.set(marketKey, {
+          shares, entry: signal.price, amount: result.amount,
+          slug: signal.slug, outcome: signal.outcome,
+        });
       }
       const date = new Date().toISOString().split("T")[0];
       portfolio.dailySpend.set(date, (portfolio.dailySpend.get(date) || 0) + result.amount);

@@ -24,7 +24,9 @@ export interface VersionConfig {
   maxDrawdownPct: number;
   eliteTierEnabled: boolean;
   eliteTraders: string[];
-  splitBuyEnabled: boolean;
+  // MK21+: try fuzzy slug match (strip trailing -digits, event_slug fallback)
+  // on sell signals when exact (slug, outcome) miss. Older MKs only do exact.
+  mirrorSellFuzzyMatch: boolean;
   provenWinnerStacking: boolean;
   trackedTraderCount: number;
 }
@@ -44,7 +46,7 @@ const BASE: Omit<VersionConfig, "mk" | "codename" | "commit" | "date" | "hypothe
   maxDrawdownPct: 20,
   eliteTierEnabled: false,
   eliteTraders: [],
-  splitBuyEnabled: false,
+  mirrorSellFuzzyMatch: false,
   provenWinnerStacking: false,
 };
 
@@ -160,9 +162,8 @@ export const VERSIONS: VersionConfig[] = [
     maxDailyExposurePct: 75, bypassDailyCapForProvenWinners: true,
     provenWinnerStacking: true,
     eliteTierEnabled: true, eliteTraders: ["0x2a2c"],
-    splitBuyEnabled: true,
-    hypothesis: "3x multiplier as 3 separate $5 buys reduces slippage vs 1x $15",
-    description: "Split-buy: 3x multiplier = 3 separate $5 buys, not 1x $15",
+    hypothesis: "3x multiplier as 3 separate $5 buys reduces slippage vs 1x $15 (flag never wired — see sim-engine-fidelity-v2.md)",
+    description: "Split-buy (INTENDED but never implemented — dead flag removed 2026-04-24)",
     status: "retired", trackedTraderCount: 22,
   },
   {
@@ -172,9 +173,8 @@ export const VERSIONS: VersionConfig[] = [
     maxDailyExposurePct: 75, bypassDailyCapForProvenWinners: true,
     provenWinnerStacking: true,
     eliteTierEnabled: true, eliteTraders: ["0x2a2c"],
-    splitBuyEnabled: false,
-    hypothesis: "Spreading across markets is better than stacking same market",
-    description: "Revert split-buy, spread across unique markets instead of stacking",
+    hypothesis: "Spreading across markets is better than stacking same market (no-op vs MK15 — flag was dead)",
+    description: "Revert split-buy (NO-OP vs MK15 because flag was dead)",
     status: "retired", trackedTraderCount: 22,
   },
   {
@@ -226,9 +226,13 @@ export const VERSIONS: VersionConfig[] = [
   },
   {
     ...BASE, mk: 21, codename: "Mirror", commit: "pending", date: "2026-04-20",
+    tradeAmountUsd: 3,
     dedupAcrossTraders: true, adaptiveSizing: false, maxSignalsPerHour: 20,
     maxPerMarketPct: 3, bypassNoiseForProvenWinners: false,
     maxDailyExposurePct: 30, bypassDailyCapForProvenWinners: false,
+    maxDrawdownPct: 15,
+    minPrice: 0.05,
+    mirrorSellFuzzyMatch: true,
     provenWinnerStacking: false,
     eliteTierEnabled: false, eliteTraders: [],
     hypothesis: "DB-precheck + fuzzy slug match will recover the 74 missed mirror-sells and close the real-vs-paper PnL gap",
