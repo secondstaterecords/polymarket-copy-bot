@@ -34,7 +34,8 @@ import { scanAndRecordResolutions } from "./resolution-tracker";
 import { recomputeAllTraderStats, getTraderSizeMultiplier } from "./trader-stats";
 import { simulateSignal, applyResolutions, savePortfolioSnapshots } from "./sim-engine";
 import { computeAllMetrics } from "./metrics";
-import { VERSIONS } from "./versions";
+import { VERSIONS, getDeployedVersion } from "./versions";
+const deployed = getDeployedVersion();
 import { seedVersionConfigs } from "./db";
 
 // ── State ───────────────────────────────────────────────────────────
@@ -155,8 +156,8 @@ function processSignal(signal: TradeSignal): void {
     seenPositions,
     recentSignals,
     activeMarkets: getActiveMarkets(db),
-    maxPerMarket: (config.risk.maxPerMarketPct / 100) * cap,
-    maxDailyExposure: (config.risk.maxDailyExposurePct / 100) * cap,
+    maxPerMarket: (deployed.maxPerMarketPct / 100) * cap,
+    maxDailyExposure: (deployed.maxDailyExposurePct / 100) * cap,
     traderEv,
   };
 
@@ -205,7 +206,7 @@ function processSignal(signal: TradeSignal): void {
 function handleBuy(signal: TradeSignal): void {
   // Always $5 per trade. Elite traders get value from SPREAD (more unique
   // signals pass via noise filter bypass), not from stacking same market.
-  const amount = config.risk.tradeAmountUsd;
+  const amount = deployed.tradeAmountUsd;
   const paperShares = signal.price > 0 ? amount / signal.price : 0;
 
   if (!config.paperMode) {
@@ -552,7 +553,7 @@ function refreshPnl(): void {
         usdcBalance = bal;
         totalCapital = bal + positionsValue;
         // Alert when balance recovers enough to trade again
-        if (prevBalance < config.risk.tradeAmountUsd && bal >= config.risk.tradeAmountUsd) {
+        if (prevBalance < deployed.tradeAmountUsd && bal >= deployed.tradeAmountUsd) {
           log("CASH", `Balance recovered to $${bal.toFixed(2)} — live trading resumed`);
           sendTelegram(`💰 *Cash is back!*\nBalance: $${bal.toFixed(2)}\nLive trading resumed automatically.`);
         }
@@ -564,8 +565,8 @@ function refreshPnl(): void {
       totalCapital = config.risk.fallbackCapital;
     }
     const cap = totalCapital || config.risk.fallbackCapital;
-    const maxDaily = Math.round((config.risk.maxDailyExposurePct / 100) * cap);
-    const maxMkt = Math.round((config.risk.maxPerMarketPct / 100) * cap);
+    const maxDaily = Math.round((deployed.maxDailyExposurePct / 100) * cap);
+    const maxMkt = Math.round((deployed.maxPerMarketPct / 100) * cap);
 
     log("P&L", `Paper: $${paperPnl.pnl} (${paperPnl.returnPct}%) | Real: $${realPnl.pnl} (${realPnl.returnPct}%) | Capital: $${cap.toFixed(0)} (bal $${usdcBalance.toFixed(0)} + pos $${positionsValue.toFixed(0)}) | Limits: daily $${maxDaily}, mkt $${maxMkt}`);
 
@@ -584,10 +585,10 @@ function refreshPnl(): void {
     }
     if (activePnl.pnl > dailyHighWaterMark) dailyHighWaterMark = activePnl.pnl;
     const drawdownFromHwm = dailyHighWaterMark - activePnl.pnl;
-    const maxDrawdown = (config.risk.maxDrawdownPct / 100) * cap;
+    const maxDrawdown = (deployed.maxDrawdownPct / 100) * cap;
     if (drawdownFromHwm > maxDrawdown && !circuitBreakerTripped) {
       circuitBreakerTripped = true;
-      log("RISK", `CIRCUIT BREAKER: drawdown $${drawdownFromHwm.toFixed(2)} exceeds max $${maxDrawdown.toFixed(2)} (${config.risk.maxDrawdownPct}% of $${cap.toFixed(0)}) — pausing new buys`);
+      log("RISK", `CIRCUIT BREAKER: drawdown $${drawdownFromHwm.toFixed(2)} exceeds max $${maxDrawdown.toFixed(2)} (${deployed.maxDrawdownPct}% of $${cap.toFixed(0)}) — pausing new buys`);
       alertTrade("CIRCUIT_BREAKER", "SYSTEM", "drawdown", `$${drawdownFromHwm.toFixed(2)}`, 0, 0, "risk");
     }
     if (circuitBreakerTripped && drawdownFromHwm <= maxDrawdown * 0.5) {
@@ -898,7 +899,7 @@ async function main(): Promise<void> {
     if (bal !== null) {
       usdcBalance = bal;
       totalCapital = bal;
-      log("INIT", `USDC balance: $${bal.toFixed(2)} — limits: daily $${Math.round((config.risk.maxDailyExposurePct / 100) * bal)}, per-market $${Math.round((config.risk.maxPerMarketPct / 100) * bal)}, circuit breaker at $${Math.round((config.risk.maxDrawdownPct / 100) * bal)} drawdown`);
+      log("INIT", `USDC balance: $${bal.toFixed(2)} — MK${deployed.mk} ${deployed.codename} | daily $${Math.round((deployed.maxDailyExposurePct / 100) * bal)}, per-market $${Math.round((deployed.maxPerMarketPct / 100) * bal)}, circuit breaker at $${Math.round((deployed.maxDrawdownPct / 100) * bal)} drawdown`);
     } else {
       totalCapital = config.risk.fallbackCapital;
       log("INIT", `Balance check failed — using fallback capital $${config.risk.fallbackCapital}`);

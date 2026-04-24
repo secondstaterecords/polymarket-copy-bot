@@ -197,7 +197,7 @@ export const VERSIONS: VersionConfig[] = [
     eliteTierEnabled: true, eliteTraders: ["0x2a2c", "sovereign2013"],
     hypothesis: "Circuit breaker reset at 4 AM ET aligns with US sports schedule",
     description: "Circuit breaker resets at 4 AM ET instead of midnight UTC",
-    status: "deployed", trackedTraderCount: 22,
+    status: "retired", trackedTraderCount: 22,
   },
   {
     ...BASE, mk: 19, codename: "Priority", commit: "pending", date: "2026-04-18",
@@ -212,14 +212,17 @@ export const VERSIONS: VersionConfig[] = [
   },
   {
     ...BASE, mk: 20, codename: "Reset", commit: "pending", date: "2026-04-20",
+    tradeAmountUsd: 3,
     dedupAcrossTraders: true, adaptiveSizing: false, maxSignalsPerHour: 20,
     maxPerMarketPct: 3, bypassNoiseForProvenWinners: false,
     maxDailyExposurePct: 30, bypassDailyCapForProvenWinners: false,
+    maxDrawdownPct: 15,
+    minPrice: 0.05,
     provenWinnerStacking: false,
     eliteTierEnabled: false, eliteTraders: [],
     hypothesis: "Smaller roster (10 verified) + tighter caps ($3/trade, 30% daily, hard 0.05 price floor) + 7-day resolution limit will outperform wider spray by reducing noise exposure",
-    description: "Hard reset — 10 verified traders, $3/trade, 30% daily cap, price floor 0.05, max 7-day resolution, no elite/stacking multipliers",
-    status: "testing", trackedTraderCount: 10,
+    description: "Hard reset — 10 verified traders, $3/trade, 30% daily cap, price floor 0.05, max 15% drawdown, no elite/stacking multipliers",
+    status: "deployed", trackedTraderCount: 10,
   },
   {
     ...BASE, mk: 21, codename: "Mirror", commit: "pending", date: "2026-04-20",
@@ -236,6 +239,19 @@ export const VERSIONS: VersionConfig[] = [
 
 export function getVersion(mk: number): VersionConfig | undefined {
   return VERSIONS.find(v => v.mk === mk);
+}
+
+// Single source of truth for live-bot risk params. Exactly one MK must have
+// status="deployed" at any time; throw loudly if zero or >1 to prevent
+// silent drift between versions.ts and live config.
+export function getDeployedVersion(): VersionConfig {
+  const deployed = VERSIONS.filter(v => v.status === "deployed");
+  if (deployed.length !== 1) {
+    throw new Error(
+      `getDeployedVersion: expected exactly 1 MK with status="deployed", found ${deployed.length}: ${deployed.map(v => `MK${v.mk}`).join(", ")}`
+    );
+  }
+  return deployed[0];
 }
 
 export function getDeployedVersion(): VersionConfig {
