@@ -19,6 +19,8 @@ const emptyState = {
   seenPositions: new Set<string>(),
   recentSignals: [],
   activeMarkets: new Set<string>(),
+  maxPerMarket: 25, // 25/250 = 10% of starting capital
+  maxDailyExposure: 100, // 100/250 = 40%
 };
 
 describe("shouldCopyTrade", () => {
@@ -26,7 +28,8 @@ describe("shouldCopyTrade", () => {
     expect(shouldCopyTrade(baseSignal, DEFAULT_CONFIG, emptyState).pass).toBe(true);
   });
   it("rejects low price", () => {
-    const r = shouldCopyTrade({ ...baseSignal, price: 0.05 }, DEFAULT_CONFIG, emptyState);
+    // minPrice is 0.05 (boundary inclusive: 0.05 passes, 0.04 fails)
+    const r = shouldCopyTrade({ ...baseSignal, price: 0.04 }, DEFAULT_CONFIG, emptyState);
     expect(r.pass).toBe(false);
     expect(r.reason).toContain("price");
   });
@@ -41,13 +44,15 @@ describe("shouldCopyTrade", () => {
     expect(r.reason).toContain("amount");
   });
   it("rejects exceeded market cap", () => {
-    const state = { ...emptyState, marketExposure: new Map([["test-market:Yes", 25]]) };
+    // emptyState.maxPerMarket = 25; 23 already there + $3/trade > 25 → fail
+    const state = { ...emptyState, marketExposure: new Map([["test-market:Yes", 23]]) };
     const r = shouldCopyTrade(baseSignal, DEFAULT_CONFIG, state);
     expect(r.pass).toBe(false);
     expect(r.reason).toContain("market cap");
   });
   it("rejects exceeded daily cap", () => {
-    const state = { ...emptyState, dailyExposure: 200 };
+    // emptyState.maxDailyExposure = 100; 99 already + $3/trade > 100 → fail
+    const state = { ...emptyState, dailyExposure: 99 };
     const r = shouldCopyTrade(baseSignal, DEFAULT_CONFIG, state);
     expect(r.pass).toBe(false);
     expect(r.reason).toContain("daily");

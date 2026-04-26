@@ -28,10 +28,10 @@ export interface VersionConfig {
   // on sell signals when exact (slug, outcome) miss. Older MKs only do exact.
   mirrorSellFuzzyMatch: boolean;
   provenWinnerStacking: boolean;
-  trackedTraderCount: number;
+  // trackedTraderCount removed 2026-04-24 — was meta-only, never read.
 }
 
-const BASE: Omit<VersionConfig, "mk" | "codename" | "commit" | "date" | "hypothesis" | "description" | "status" | "trackedTraderCount"> = {
+const BASE: Omit<VersionConfig, "mk" | "codename" | "commit" | "date" | "hypothesis" | "description" | "status"> = {
   tradeAmountUsd: 5,
   maxPerMarketPct: 12,
   maxDailyExposurePct: 40,
@@ -55,67 +55,67 @@ export const VERSIONS: VersionConfig[] = [
     ...BASE, mk: 1, codename: "Genesis", commit: "3b3a2b7", date: "2026-04-09",
     hypothesis: "Can we detect and replay sharp wallet trades fast enough?",
     description: "Paper trading, basic dashboard, no filters",
-    status: "retired", trackedTraderCount: 5,
+    status: "retired",
   },
   {
     ...BASE, mk: 2, codename: "Foundation", commit: "c0c1e79", date: "2026-04-10",
     hypothesis: "Modular architecture enables rapid iteration",
     description: "V2 architecture — executor, config, filters, db, tracker modules",
-    status: "retired", trackedTraderCount: 5,
+    status: "retired",
   },
   {
     ...BASE, mk: 3, codename: "Tracker", commit: "cae8821", date: "2026-04-10",
     hypothesis: "More traders = more signals = better coverage",
     description: "Tracker-based detection (Sharbel approach), expand to 15 traders",
-    status: "retired", trackedTraderCount: 15,
+    status: "retired",
   },
   {
     ...BASE, mk: 4, codename: "Sentinel", commit: "679d659", date: "2026-04-10",
     hypothesis: "Real-time alerts improve reaction time to issues",
     description: "Telegram alerts for trades and P&L summaries. Same trading logic as MK3.",
-    status: "retired", trackedTraderCount: 15,
+    status: "retired",
   },
   {
     ...BASE, mk: 5, codename: "Guardian", commit: "0f420bb", date: "2026-04-15",
     dedupAcrossTraders: true,
     hypothesis: "Limiting exposure reduces drawdown without killing returns",
     description: "Loss-based pause, both-sides dedup, daily cap 40%. First risk controls.",
-    status: "retired", trackedTraderCount: 15,
+    status: "retired",
   },
   {
     ...BASE, mk: 6, codename: "Shield", commit: "d3aa599", date: "2026-04-15",
     dedupAcrossTraders: true,
     hypothesis: "Pre-trade balance check prevents failed orders",
     description: "Balance check before real trades, prevent failed trade spam",
-    status: "retired", trackedTraderCount: 15,
+    status: "retired",
   },
   {
     ...BASE, mk: 7, codename: "Cashflow", commit: "192c276", date: "2026-04-15",
     dedupAcrossTraders: true,
     hypothesis: "Alerting on cash recovery enables faster response",
     description: "Telegram alert when cash balance recovers. Same trading logic as MK6.",
-    status: "retired", trackedTraderCount: 15,
+    status: "retired",
   },
   {
     ...BASE, mk: 8, codename: "Watchdog", commit: "58b222d", date: "2026-04-16",
     dedupAcrossTraders: true,
     hypothesis: "Detecting auth failures prevents silent downtime",
     description: "Detect Bullpen auth expiry and alert via Telegram. Same trading logic as MK6.",
-    status: "retired", trackedTraderCount: 15,
+    status: "retired",
   },
   {
     ...BASE, mk: 9, codename: "Oracle", commit: "0e1be38", date: "2026-04-16",
     dedupAcrossTraders: true, adaptiveSizing: true, maxSignalsPerHour: 20,
     hypothesis: "Tracking resolutions + adaptive sizing improves risk-adjusted returns",
     description: "Resolution tracking, per-trader stats, adaptive sizing, 20/hr noise filter",
-    status: "retired", trackedTraderCount: 15,
+    status: "retired",
   },
   {
     ...BASE, mk: 10, codename: "Expansion", commit: "dbd686e", date: "2026-04-16",
     dedupAcrossTraders: true, adaptiveSizing: true, maxSignalsPerHour: 20,
     hypothesis: "More high-quality traders = more signal diversity",
     description: "Expand from 15 to 22 traders, top-30 leaderboard picks",
-    status: "retired", trackedTraderCount: 22,
+    status: "retired",
   },
   {
     ...BASE, mk: 11, codename: "Vanguard", commit: "55bd9a1", date: "2026-04-16",
@@ -123,7 +123,7 @@ export const VERSIONS: VersionConfig[] = [
     maxPerMarketPct: 5, bypassNoiseForProvenWinners: true,
     hypothesis: "Proven winners should bypass noise filters — their signals are real",
     description: "Exempt proven-winner traders from noise filter, CLV tracking, safer 5% per-market",
-    status: "retired", trackedTraderCount: 22,
+    status: "retired",
   },
   {
     ...BASE, mk: 12, codename: "Uncapped", commit: "263c1a3", date: "2026-04-16",
@@ -132,7 +132,7 @@ export const VERSIONS: VersionConfig[] = [
     maxDailyExposurePct: 75, bypassDailyCapForProvenWinners: true,
     hypothesis: "Higher daily cap + proven winner bypass captures more profitable signals",
     description: "Daily cap 40%→75%, 2x bypass for proven winners",
-    status: "retired", trackedTraderCount: 22,
+    status: "retired",
   },
   {
     ...BASE, mk: 13, codename: "Stacker", commit: "96be751", date: "2026-04-16",
@@ -142,7 +142,7 @@ export const VERSIONS: VersionConfig[] = [
     provenWinnerStacking: true,
     hypothesis: "Allowing proven winners to add to existing positions compounds edge",
     description: "Let proven winners stack into existing positions",
-    status: "retired", trackedTraderCount: 22,
+    status: "retired",
   },
   {
     ...BASE, mk: 14, codename: "Elite", commit: "82b3534", date: "2026-04-17",
@@ -153,7 +153,7 @@ export const VERSIONS: VersionConfig[] = [
     eliteTierEnabled: true, eliteTraders: ["0x2a2c"],
     hypothesis: "92%+ win rate traders deserve zero noise filtering + 3x sizing",
     description: "Elite tier — 3x sizing + zero noise filter for 92%+ traders",
-    status: "retired", trackedTraderCount: 22,
+    status: "retired",
   },
   {
     ...BASE, mk: 15, codename: "Splitfire", commit: "ceaa2b6", date: "2026-04-17",
@@ -164,7 +164,7 @@ export const VERSIONS: VersionConfig[] = [
     eliteTierEnabled: true, eliteTraders: ["0x2a2c"],
     hypothesis: "3x multiplier as 3 separate $5 buys reduces slippage vs 1x $15 (flag never wired — see sim-engine-fidelity-v2.md)",
     description: "Split-buy (INTENDED but never implemented — dead flag removed 2026-04-24)",
-    status: "retired", trackedTraderCount: 22,
+    status: "retired",
   },
   {
     ...BASE, mk: 16, codename: "Spread", commit: "1bd2a2f", date: "2026-04-17",
@@ -175,7 +175,7 @@ export const VERSIONS: VersionConfig[] = [
     eliteTierEnabled: true, eliteTraders: ["0x2a2c"],
     hypothesis: "Spreading across markets is better than stacking same market (no-op vs MK15 — flag was dead)",
     description: "Revert split-buy (NO-OP vs MK15 because flag was dead)",
-    status: "retired", trackedTraderCount: 22,
+    status: "retired",
   },
   {
     ...BASE, mk: 17, codename: "Sovereign", commit: "78c7b97", date: "2026-04-17",
@@ -186,7 +186,7 @@ export const VERSIONS: VersionConfig[] = [
     eliteTierEnabled: true, eliteTraders: ["0x2a2c", "sovereign2013"],
     hypothesis: "sovereign2013 earned elite tier — 73% WR, +144% avg return",
     description: "sovereign2013 joins elite tier — noise filter removed for both top wallets",
-    status: "retired", trackedTraderCount: 22,
+    status: "retired",
   },
   {
     ...BASE, mk: 18, codename: "Clockwork", commit: "2814494", date: "2026-04-18",
@@ -197,7 +197,7 @@ export const VERSIONS: VersionConfig[] = [
     eliteTierEnabled: true, eliteTraders: ["0x2a2c", "sovereign2013"],
     hypothesis: "Circuit breaker reset at 4 AM ET aligns with US sports schedule",
     description: "Circuit breaker resets at 4 AM ET instead of midnight UTC",
-    status: "retired", trackedTraderCount: 22,
+    status: "retired",
   },
   {
     ...BASE, mk: 19, codename: "Priority", commit: "pending", date: "2026-04-18",
@@ -208,7 +208,7 @@ export const VERSIONS: VersionConfig[] = [
     eliteTierEnabled: true, eliteTraders: ["0x2a2c", "sovereign2013"],
     hypothesis: "Deferring low-confidence trades 60s to prioritize elite signals preserves capital for best opportunities",
     description: "Priority queue — defer <50% confidence trades 60s, execute elite/proven signals immediately",
-    status: "testing", trackedTraderCount: 22,
+    status: "testing",
   },
   {
     ...BASE, mk: 20, codename: "Reset", commit: "pending", date: "2026-04-20",
@@ -222,7 +222,7 @@ export const VERSIONS: VersionConfig[] = [
     eliteTierEnabled: false, eliteTraders: [],
     hypothesis: "Smaller roster (10 verified) + tighter caps ($3/trade, 30% daily, hard 0.05 price floor) + 7-day resolution limit will outperform wider spray by reducing noise exposure",
     description: "Hard reset — 10 verified traders, $3/trade, 30% daily cap, price floor 0.05, max 15% drawdown, no elite/stacking multipliers",
-    status: "deployed", trackedTraderCount: 10,
+    status: "deployed",
   },
   {
     ...BASE, mk: 21, codename: "Mirror", commit: "pending", date: "2026-04-20",
@@ -237,7 +237,7 @@ export const VERSIONS: VersionConfig[] = [
     eliteTierEnabled: false, eliteTraders: [],
     hypothesis: "DB-precheck + fuzzy slug match will recover the 74 missed mirror-sells and close the real-vs-paper PnL gap",
     description: "Mirror-sell fix — DB precheck on position existence, fuzzy slug match (strip trailing hashes), event_slug fallback, match.slug used for sellMarket",
-    status: "testing", trackedTraderCount: 10,
+    status: "testing",
   },
 ];
 
@@ -256,4 +256,33 @@ export function getDeployedVersion(): VersionConfig {
     );
   }
   return deployed[0];
+}
+
+// Parity check between live config (config.ts) and the deployed MK. Catches
+// the silent-drift bug class — same root cause as the 2026-04-20 incident
+// (config.ts hardened, versions.ts lagged). Call once at bot startup.
+// Throws with a clear diff message so the operator knows exactly what to fix.
+export function assertConfigParity(
+  config: { filters: any; risk: any },
+  deployed: VersionConfig,
+): void {
+  const mismatches: string[] = [];
+  const check = (path: string, configVal: any, deployedVal: any) => {
+    if (configVal !== deployedVal) mismatches.push(`  ${path}: config=${configVal} deployed=${deployedVal}`);
+  };
+  check("filters.minPrice", config.filters.minPrice, deployed.minPrice);
+  check("filters.maxPrice", config.filters.maxPrice, deployed.maxPrice);
+  check("filters.minTraderAmount", config.filters.minTraderAmount, deployed.minTraderAmount);
+  check("filters.maxTraderSignalsPerHour", config.filters.maxTraderSignalsPerHour, deployed.maxSignalsPerHour);
+  check("filters.dedupAcrossTraders", config.filters.dedupAcrossTraders, deployed.dedupAcrossTraders);
+  check("risk.tradeAmountUsd", config.risk.tradeAmountUsd, deployed.tradeAmountUsd);
+  check("risk.maxPerMarketPct", config.risk.maxPerMarketPct, deployed.maxPerMarketPct);
+  check("risk.maxDailyExposurePct", config.risk.maxDailyExposurePct, deployed.maxDailyExposurePct);
+  check("risk.maxDrawdownPct", config.risk.maxDrawdownPct, deployed.maxDrawdownPct);
+  if (mismatches.length > 0) {
+    throw new Error(
+      `Config parity failure: live config.{filters,risk} drifted from deployed MK${deployed.mk} ${deployed.codename}:\n${mismatches.join("\n")}\n` +
+      `Fix: update either src/config.ts or the MK${deployed.mk} block in src/versions.ts so they match exactly.`
+    );
+  }
 }

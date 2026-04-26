@@ -34,7 +34,7 @@ import { scanAndRecordResolutions } from "./resolution-tracker";
 import { recomputeAllTraderStats, getTraderSizeMultiplier } from "./trader-stats";
 import { simulateSignal, applyResolutions, savePortfolioSnapshots } from "./sim-engine";
 import { computeAllMetrics } from "./metrics";
-import { VERSIONS, getDeployedVersion } from "./versions";
+import { VERSIONS, getDeployedVersion, assertConfigParity } from "./versions";
 const deployed = getDeployedVersion();
 import { seedVersionConfigs } from "./db";
 
@@ -886,10 +886,13 @@ function startControlServer(): void {
 // ── Main loop ───────────────────────────────────────────────────────
 async function main(): Promise<void> {
   config = loadConfig();
+  // Fail loudly if live config (config.ts) drifted from deployed MK
+  // (versions.ts). Same root-cause as the 2026-04-20 incident.
+  assertConfigParity(config, deployed);
   db = createDb(config.dataDir);
   seedVersionConfigs(db, VERSIONS);
 
-  log("INIT", `Polymarket Copy Bot V2 starting (paper=${config.paperMode})`);
+  log("INIT", `Polymarket Copy Bot V2 starting (paper=${config.paperMode}, deployed=MK${deployed.mk} ${deployed.codename})`);
   log("INIT", `Tracking ${config.traders.length} traders, poll every ${config.pollIntervalMs / 1000}s`);
   log("INIT", `Telegram alerts: ${telegramEnabled() ? "enabled" : "disabled (set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)"}`);
 
