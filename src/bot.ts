@@ -340,6 +340,7 @@ function handleSell(signal: TradeSignal): void {
         // Dump state so we can diagnose post-hoc
         log("SELL_NO_MATCH", `${signal.traderName} wanted to sell ${signal.slug}:${signal.outcome} but no current position matched`);
         log("SELL_NO_MATCH_POSITIONS", `Current slugs: ${positions.slice(0, 10).map((p: any) => `${p.slug}:${p.outcome}`).join(", ")}`);
+        alertTrade("SELL", signal.traderName, signal.slug, signal.outcome, signal.price, 0, "sell-miss");
         // Fall through to paper record so we still log the trader signal
       } else {
         const totalShares = match.shares || match.size || 0;
@@ -348,6 +349,7 @@ function handleSell(signal: TradeSignal): void {
           const result = sellMarket(match.slug, match.outcome, sharesToSell);
           if (result.success) {
             log("SELL", `${signal.traderName} ${match.slug}:${match.outcome} ${sharesToSell} shares (matched on ${match.slug === signal.slug ? "slug" : "fuzzy"})`);
+            alertTrade("SELL", signal.traderName, match.slug, match.outcome, signal.price, sharesToSell * signal.price, "REAL");
             insertTrade(db, {
               timestamp: new Date().toISOString(),
               trader: signal.traderName,
@@ -376,6 +378,7 @@ function handleSell(signal: TradeSignal): void {
 
   // Paper sell
   log("PAPER", `${signal.traderName} SELL ${signal.slug}:${signal.outcome}`);
+  alertTrade("SELL", signal.traderName, signal.slug, signal.outcome, signal.price, 0, "paper");
   insertTrade(db, {
     timestamp: new Date().toISOString(),
     trader: signal.traderName,
