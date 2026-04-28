@@ -132,6 +132,43 @@ export function createDb(dataDir: string): Database.Database {
       circuit_breaker_tripped INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     );
+
+    -- Shadow-live audit ledger. One row per signal-driven decision the deployed
+    -- MK would have made against a portfolio initialized from the real Bullpen
+    -- account state on startup. Does NOT use STARTING_CAPITAL=$250 — uses real
+    -- cash + real open positions, so this is the 1:1 verification layer for the
+    -- live flip. See docs/shadow-live-mode-spec.md.
+    CREATE TABLE IF NOT EXISTS shadow_trades (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      signal_id INTEGER NOT NULL,
+      timestamp TEXT NOT NULL,
+      trader TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      outcome TEXT NOT NULL,
+      side TEXT NOT NULL,
+      decision TEXT NOT NULL,
+      reason TEXT,
+      amount_usd REAL,
+      shares REAL,
+      price REAL,
+      shadow_cash_before REAL NOT NULL,
+      shadow_cash_after REAL NOT NULL,
+      match_type TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_shadow_trades_signal ON shadow_trades(signal_id);
+    CREATE INDEX IF NOT EXISTS idx_shadow_trades_slug ON shadow_trades(slug, outcome);
+
+    -- 5-min reconciliation snapshots: shadow vs real Bullpen. Drift trend is the
+    -- go/no-go signal for live flip. Acceptance: |drift| < $1 across 7 daily
+    -- snapshots before any flip discussion.
+    CREATE TABLE IF NOT EXISTS shadow_balance_snapshots (
+      timestamp TEXT PRIMARY KEY,
+      shadow_cash REAL NOT NULL,
+      shadow_positions_value REAL NOT NULL,
+      bullpen_cash REAL,
+      bullpen_positions_value REAL,
+      drift_usd REAL
+    );
   `);
   // Migrations for existing DBs
   try { db.exec("ALTER TABLE trader_stats ADD COLUMN avg_clv_pct REAL NOT NULL DEFAULT 0"); } catch {}
@@ -287,6 +324,49 @@ export function insertSimPortfolioSnapshot(
     INSERT OR REPLACE INTO sim_portfolios (mk, timestamp, cash, positions_value, total_equity, open_positions)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(mk, now, cash, positionsValue, cash + positionsValue, openPositions);
+}
+
+// ── Shadow-live ledger helpers ──────────────────────────────────────
+export interface ShadowTradeRow {
+  signalId: number;
+  timestamp: string;
+  trader: string;
+  slug: string;
+  outcome: string;
+  side: "BUY" | "SELL";
+  decision: "executed" | "skipped" | "sell-miss";
+  reason: string | null;
+  amountUsd: number | null;
+  shares: number | null;
+  price: number | null;
+  shadowCashBefore: number;
+  shadowCashAfter: number;
+  matchType: "exact" | "fuzzy" | null;
+}
+export function insertShadowTrade(db: Database.Database, row: ShadowTradeRow): void {
+  db.prepare(`
+    INSERT INTO shadow_trades (signal_id, timestamp, trader, slug, outcome, side,
+      decision, reason, amount_usd, shares, price,
+      shadow_cash_before, shadow_cash_after, match_type)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(row.signalId, row.timestamp, row.trader, row.slug, row.outcome, row.side,
+    row.decision, row.reason, row.amountUsd, row.shares, row.price,
+    row.shadowCashBefore, row.shadowCashAfter, row.matchType);
+}
+
+export function insertShadowSnapshot(db: Database.Database, snap: {
+  shadowCash: number;
+  shadowPositionsValue: number;
+  bullpenCash: number | null;
+  bullpenPositionsValue: number | null;
+  driftUsd: number | null;
+}): void {
+  db.prepare(`
+    INSERT OR REPLACE INTO shadow_balance_snapshots
+      (timestamp, shadow_cash, shadow_positions_value, bullpen_cash, bullpen_positions_value, drift_usd)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(new Date().toISOString(), snap.shadowCash, snap.shadowPositionsValue,
+    snap.bullpenCash, snap.bullpenPositionsValue, snap.driftUsd);
 }
 
 export function seedVersionConfigs(db: Database.Database, versions: any[]) {

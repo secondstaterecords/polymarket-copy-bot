@@ -33,6 +33,13 @@ import {
 import { scanAndRecordResolutions } from "./resolution-tracker";
 import { recomputeAllTraderStats, getTraderSizeMultiplier } from "./trader-stats";
 import { simulateSignal, applyResolutions, savePortfolioSnapshots } from "./sim-engine";
+import {
+  initShadow,
+  processSignalShadow,
+  applyResolutionsShadow,
+  reconcileShadow,
+  isShadowReady,
+} from "./shadow-engine";
 import { computeAllMetrics } from "./metrics";
 import { VERSIONS, getDeployedVersion, assertConfigParity } from "./versions";
 const deployed = getDeployedVersion();
@@ -200,6 +207,20 @@ function processSignal(signal: TradeSignal): void {
     handleBuy(signal);
   } else {
     handleSell(signal);
+  }
+
+  // Shadow ledger — runs only on signals that passed the deployed MK's filters
+  // (handleBuy/handleSell were called above). Uses the rowid of the trades row
+  // those handlers just wrote so shadow_trades.signal_id cross-references it.
+  try {
+    if (isShadowReady()) {
+      const lastInserted = db.prepare("SELECT last_insert_rowid() as id").get() as any;
+      if (lastInserted?.id) {
+        processSignalShadow(db, lastInserted.id, signal, deployed);
+      }
+    }
+  } catch (e: any) {
+    log("SHADOW", `processSignalShadow error: ${e.message}`);
   }
 }
 
@@ -712,6 +733,7 @@ function refreshPnl(): void {
         log("RES", `Resolution scan error: ${err.message}`);
       }
       try { applyResolutions(db); } catch {}
+      try { applyResolutionsShadow(db); } catch {}
     }
 
     // ── Recompute trader stats (every 2 hours) ──────────────────
@@ -928,6 +950,23 @@ async function main(): Promise<void> {
     log("INIT", "Setting up tracker following for all traders...");
     setupTrackerFollowing();
     log("INIT", "Tracker mode enabled — using unified trade feed");
+  }
+
+  // Hydrate shadow portfolio from the real Bullpen account state. In paperMode
+  // we skip seeding open positions (review F3 — those positions aren't from
+  // the bot, so including them poisons the drift signal). If Bullpen auth is
+  // broken at startup, reconcileShadow retries init each cycle so a mid-
+  // session auth recovery brings shadow back online without a restart (F8).
+  try {
+    await initShadow({ paperMode: config.paperMode, resolutionsTable: db });
+    // Always start the cron — it auto-retries init when uninitialized.
+    await reconcileShadow(db, { paperMode: config.paperMode });
+    setInterval(() => {
+      reconcileShadow(db, { paperMode: config.paperMode })
+        .catch((e) => log("SHADOW", `reconcile error: ${e.message}`));
+    }, 5 * 60 * 1000);
+  } catch (e: any) {
+    log("SHADOW", `init failed: ${e.message}`);
   }
 
   startControlServer();
