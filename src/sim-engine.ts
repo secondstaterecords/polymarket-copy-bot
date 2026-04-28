@@ -6,7 +6,11 @@
 import Database from "better-sqlite3";
 import { VERSIONS, VersionConfig } from "./versions";
 import { TradeSignal } from "./filters";
-import { insertSimResult, insertSimPortfolioSnapshot } from "./db";
+import {
+  insertSimResult, insertSimPortfolioSnapshot,
+  upsertSimPosition, deleteSimPosition, loadSimPositions,
+  loadSimState, saveSimState,
+} from "./db";
 
 interface VirtualPortfolio {
   mk: number;
@@ -21,22 +25,45 @@ interface VirtualPortfolio {
 }
 
 const portfolios = new Map<number, VirtualPortfolio>();
+const hydrated = new Set<number>();
 const STARTING_CAPITAL = 250;
 
-function getOrCreatePortfolio(mk: number): VirtualPortfolio {
+// Hydrate from disk on first access per MK. Before this fix, every restart
+// silently reset cash to STARTING_CAPITAL and dropped open positions —
+// inflating per-MK metrics by ~10x across deploys (audit 2026-04-28).
+function getOrCreatePortfolio(db: Database.Database, mk: number): VirtualPortfolio {
   if (!portfolios.has(mk)) {
-    portfolios.set(mk, {
+    const persisted = loadSimState(db, mk);
+    const positions = loadSimPositions(db, mk);
+    const portfolio: VirtualPortfolio = {
       mk,
-      cash: STARTING_CAPITAL,
-      positions: new Map(),
+      cash: persisted ? persisted.cash : STARTING_CAPITAL,
+      positions: new Map(positions.map(p => [`${p.slug}:${p.outcome}`, {
+        shares: p.shares, entry: p.entry, amount: p.amount, slug: p.slug, outcome: p.outcome,
+      }])),
       dailySpend: new Map(),
       signalsByHour: new Map(),
-      dailyHighWaterMark: 0,
-      lastDrawdownReset: "",
-      circuitBreakerTripped: false,
-    });
+      dailyHighWaterMark: persisted?.dailyHighWaterMark ?? 0,
+      lastDrawdownReset: persisted?.lastDrawdownReset ?? "",
+      circuitBreakerTripped: persisted?.circuitBreakerTripped ?? false,
+    };
+    portfolios.set(mk, portfolio);
+    if (!persisted) {
+      // First time this MK has been seen — write a row so subsequent restarts hydrate.
+      saveSimState(db, mk, portfolio);
+    }
+    hydrated.add(mk);
   }
   return portfolios.get(mk)!;
+}
+
+function persistState(db: Database.Database, portfolio: VirtualPortfolio): void {
+  saveSimState(db, portfolio.mk, {
+    cash: portfolio.cash,
+    dailyHighWaterMark: portfolio.dailyHighWaterMark,
+    lastDrawdownReset: portfolio.lastDrawdownReset,
+    circuitBreakerTripped: portfolio.circuitBreakerTripped,
+  });
 }
 
 // Normalize a slug for fuzzy matching: lowercase + strip trailing -digits
@@ -204,7 +231,7 @@ export function simulateSignal(
   traderEv: Map<string, { expectedValue: number; confidence: string }>,
 ): void {
   for (const version of VERSIONS) {
-    const portfolio = getOrCreatePortfolio(version.mk);
+    const portfolio = getOrCreatePortfolio(db, version.mk);
 
     // SELL handling — per-MK sell-match logic. This is where MK21's fuzzy match
     // actually differs from earlier MKs in the paper sim.
@@ -216,6 +243,18 @@ export function simulateSignal(
       insertSimResult(db, signalId, version.mk, "trade", reason,
         sellResult.sold ? -sellResult.proceeds : null,
         sellResult.sold ? -sellResult.shares : null);
+      // Persist on every successful sell (cash + position list both changed).
+      // tryMatchSell already deleted the matched position from the in-memory map;
+      // we don't know its key here (could be exact or fuzzy), so the cheapest
+      // correct mirror is to clear the disk row-set for this MK and re-upsert
+      // what's still in memory. ~50 rows per MK, single DB transaction, fine.
+      if (sellResult.sold) {
+        db.prepare(`DELETE FROM sim_positions WHERE mk=?`).run(version.mk);
+        for (const [, p] of portfolio.positions) {
+          upsertSimPosition(db, version.mk, p.slug, p.outcome, p.shares, p.entry, p.amount);
+        }
+        persistState(db, portfolio);
+      }
       continue;
     }
 
@@ -237,6 +276,10 @@ export function simulateSignal(
       }
       const date = new Date().toISOString().split("T")[0];
       portfolio.dailySpend.set(date, (portfolio.dailySpend.get(date) || 0) + result.amount);
+      // Persist position + cash after every BUY.
+      const pos = portfolio.positions.get(marketKey)!;
+      upsertSimPosition(db, version.mk, pos.slug, pos.outcome, pos.shares, pos.entry, pos.amount);
+      persistState(db, portfolio);
     }
 
     if (signal.side === "BUY") {
@@ -257,7 +300,8 @@ export function simulateSignal(
 export function applyResolutions(db: Database.Database): void {
   const resolutions = db.prepare(`SELECT slug, outcome, won FROM resolutions`).all() as any[];
   for (const version of VERSIONS) {
-    const portfolio = getOrCreatePortfolio(version.mk);
+    const portfolio = getOrCreatePortfolio(db, version.mk);
+    let mutated = false;
     for (const res of resolutions) {
       const key = `${res.slug}:${res.outcome}`;
       const pos = portfolio.positions.get(key);
@@ -266,18 +310,39 @@ export function applyResolutions(db: Database.Database): void {
           portfolio.cash += pos.shares;
         }
         portfolio.positions.delete(key);
+        deleteSimPosition(db, version.mk, res.slug, res.outcome);
+        mutated = true;
       }
     }
+    if (mutated) persistState(db, portfolio);
   }
 }
 
 export function savePortfolioSnapshots(db: Database.Database): void {
   for (const version of VERSIONS) {
-    const portfolio = getOrCreatePortfolio(version.mk);
+    const portfolio = getOrCreatePortfolio(db, version.mk);
     let positionsValue = 0;
     for (const pos of portfolio.positions.values()) {
       positionsValue += pos.amount;
     }
     insertSimPortfolioSnapshot(db, version.mk, portfolio.cash, positionsValue, portfolio.positions.size);
+  }
+}
+
+// Reset all per-MK portfolios to STARTING_CAPITAL with no positions. Used by
+// the one-shot `npm run sim:reset` to wipe the contaminated state from the
+// pre-persistence era and start metrics fresh.
+export function resetAllPortfolios(db: Database.Database): void {
+  portfolios.clear();
+  hydrated.clear();
+  db.exec(`DELETE FROM sim_positions; DELETE FROM sim_state;`);
+  for (const version of VERSIONS) {
+    const fresh: VirtualPortfolio = {
+      mk: version.mk, cash: STARTING_CAPITAL,
+      positions: new Map(), dailySpend: new Map(), signalsByHour: new Map(),
+      dailyHighWaterMark: 0, lastDrawdownReset: "", circuitBreakerTripped: false,
+    };
+    portfolios.set(version.mk, fresh);
+    saveSimState(db, version.mk, fresh);
   }
 }

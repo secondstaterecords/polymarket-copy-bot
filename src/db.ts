@@ -105,10 +105,78 @@ export function createDb(dataDir: string): Database.Database {
       confidence TEXT,
       PRIMARY KEY (mk, metric_name)
     );
+
+    -- Suit Lab: per-MK virtual position ledger. Persisted across restarts so
+    -- in-memory portfolios can hydrate on startup. Bug fix 2026-04-28: before
+    -- this, every restart reset cash to STARTING_CAPITAL and dropped positions.
+    CREATE TABLE IF NOT EXISTS sim_positions (
+      mk INTEGER NOT NULL,
+      slug TEXT NOT NULL,
+      outcome TEXT NOT NULL,
+      shares REAL NOT NULL,
+      entry_price REAL NOT NULL,
+      amount_usd REAL NOT NULL,
+      opened_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (mk, slug, outcome)
+    );
+    CREATE INDEX IF NOT EXISTS idx_sim_positions_mk ON sim_positions(mk);
+
+    -- Persisted per-MK cash + bookkeeping state for restart hydration.
+    -- One row per MK, replaced on every state change.
+    CREATE TABLE IF NOT EXISTS sim_state (
+      mk INTEGER PRIMARY KEY,
+      cash REAL NOT NULL,
+      daily_high_water_mark REAL NOT NULL DEFAULT 0,
+      last_drawdown_reset TEXT NOT NULL DEFAULT '',
+      circuit_breaker_tripped INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    );
   `);
   // Migrations for existing DBs
   try { db.exec("ALTER TABLE trader_stats ADD COLUMN avg_clv_pct REAL NOT NULL DEFAULT 0"); } catch {}
   return db;
+}
+
+// ── sim_positions helpers ───────────────────────────────────────────
+export function upsertSimPosition(db: Database.Database, mk: number, slug: string, outcome: string, shares: number, entry: number, amount: number): void {
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO sim_positions (mk, slug, outcome, shares, entry_price, amount_usd, opened_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(mk, slug, outcome) DO UPDATE SET
+      shares = excluded.shares,
+      amount_usd = excluded.amount_usd,
+      updated_at = excluded.updated_at
+  `).run(mk, slug, outcome, shares, entry, amount, now, now);
+}
+export function deleteSimPosition(db: Database.Database, mk: number, slug: string, outcome: string): void {
+  db.prepare(`DELETE FROM sim_positions WHERE mk=? AND slug=? AND outcome=?`).run(mk, slug, outcome);
+}
+export function loadSimPositions(db: Database.Database, mk: number): Array<{slug: string; outcome: string; shares: number; entry: number; amount: number; opened_at: string}> {
+  return db.prepare(`SELECT slug, outcome, shares, entry_price as entry, amount_usd as amount, opened_at FROM sim_positions WHERE mk=?`).all(mk) as any;
+}
+export function loadSimState(db: Database.Database, mk: number): {cash: number; dailyHighWaterMark: number; lastDrawdownReset: string; circuitBreakerTripped: boolean} | null {
+  const row = db.prepare(`SELECT cash, daily_high_water_mark, last_drawdown_reset, circuit_breaker_tripped FROM sim_state WHERE mk=?`).get(mk) as any;
+  if (!row) return null;
+  return {
+    cash: row.cash,
+    dailyHighWaterMark: row.daily_high_water_mark,
+    lastDrawdownReset: row.last_drawdown_reset,
+    circuitBreakerTripped: !!row.circuit_breaker_tripped,
+  };
+}
+export function saveSimState(db: Database.Database, mk: number, state: {cash: number; dailyHighWaterMark: number; lastDrawdownReset: string; circuitBreakerTripped: boolean}): void {
+  db.prepare(`
+    INSERT INTO sim_state (mk, cash, daily_high_water_mark, last_drawdown_reset, circuit_breaker_tripped, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(mk) DO UPDATE SET
+      cash = excluded.cash,
+      daily_high_water_mark = excluded.daily_high_water_mark,
+      last_drawdown_reset = excluded.last_drawdown_reset,
+      circuit_breaker_tripped = excluded.circuit_breaker_tripped,
+      updated_at = excluded.updated_at
+  `).run(mk, state.cash, state.dailyHighWaterMark, state.lastDrawdownReset, state.circuitBreakerTripped ? 1 : 0, new Date().toISOString());
 }
 
 export function insertTrade(db: Database.Database, trade: {
