@@ -22,7 +22,7 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "Coattail — Copy the sharpest Polymarket wallets",
   description:
-    "A bot mirroring traders hitting 92% win rates on prediction markets. Adaptive sizing, honest filters, no fluff.",
+    "An automated copy desk mirroring verified top performers on prediction markets. Adaptive sizing, honest filters, no fluff.",
 };
 
 export default function RootLayout({
