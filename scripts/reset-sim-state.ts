@@ -1,10 +1,10 @@
 #!/usr/bin/env tsx
-// One-shot: wipes contaminated sim state from before the 2026-04-28 persistence fix.
-// Run once after deploying the persistence fix to start MK metrics with a clean slate.
+// One-shot: wipes contaminated sim state and reseeds all MK virtual portfolios.
+// Run after bumping STARTING_CAPITAL or to start MK metrics from a clean slate.
 //
 // Use with care — this drops sim_positions + sim_state. sim_results, sim_metrics,
 // trades, and resolutions are NOT touched (history is preserved). New paper
-// trades will start from STARTING_CAPITAL=$250 cleanly.
+// trades will start from STARTING_CAPITAL=$500 cleanly.
 //
 // Usage: `npx tsx scripts/reset-sim-state.ts`
 
@@ -14,7 +14,7 @@ import { loadConfig } from "../src/config";
 
 const config = loadConfig();
 const db = createDb(config.dataDir);
-console.log("Resetting per-MK virtual portfolios to STARTING_CAPITAL=$250 with no positions...");
+console.log("Resetting per-MK virtual portfolios to STARTING_CAPITAL=$500 with no positions...");
 resetAllPortfolios(db);
 console.log("Done. sim_positions cleared, sim_state seeded fresh for all MKs.");
 console.log("sim_results / sim_metrics / trades / resolutions unchanged.");

@@ -96,7 +96,7 @@ export const DEFAULT_CONFIG: BotConfig = {
     maxPerMarketPct: 3,          // REDUCED 2026-04-19 — was 5%
     maxDailyExposurePct: 30,     // REDUCED 2026-04-19 — was 75%, preserve dry powder
     maxDrawdownPct: 15,          // TIGHTENED — was 20%
-    fallbackCapital: 120,
+    fallbackCapital: 500,    // Bumped 2026-04-28 from $120 → $500 — paper sim baseline; also used in paperMode totalCapital path
     takeProfitPct: 900,
   },
   paperMode: true,   // PAPER MODE — 2026-04-19 24h test run with trimmed roster + mirror-sell fix

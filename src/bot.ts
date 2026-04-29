@@ -586,7 +586,18 @@ function refreshPnl(): void {
         totalCapital = Math.max(config.risk.fallbackCapital, positionsValue);
       }
     } else {
-      totalCapital = config.risk.fallbackCapital;
+      // Paper mode: cap = max(reset baseline, actual paper portfolio value).
+      // Before fix, this hardcoded fallbackCapital ($120), so daily/per-mkt limits
+      // were 30%×$120 = $36 / 3%×$120 = $4 — saturated by a few $3 trades and
+      // blocked everything. Now baseline is fallbackCapital ($500 post-2026-04-28
+      // bump) but if paper portfolio has grown past that we use the real value.
+      const paperBasis = activePnl.invested + activePnl.pnl; // current MV of all paper buys
+      totalCapital = Math.max(config.risk.fallbackCapital, paperBasis);
+      // For the log line, expose paper-portfolio components as bal/pos so the
+      // P&L log row stays readable in paperMode (bal = unspent baseline,
+      // pos = current paper invested basis).
+      usdcBalance = Math.max(0, totalCapital - paperBasis);
+      positionsValue = paperBasis;
     }
     const cap = totalCapital || config.risk.fallbackCapital;
     const maxDaily = Math.round((deployed.maxDailyExposurePct / 100) * cap);
@@ -609,7 +620,12 @@ function refreshPnl(): void {
     }
     if (activePnl.pnl > dailyHighWaterMark) dailyHighWaterMark = activePnl.pnl;
     const drawdownFromHwm = dailyHighWaterMark - activePnl.pnl;
-    const maxDrawdown = (deployed.maxDrawdownPct / 100) * cap;
+    // In paper mode, cap = max(fallbackCapital, activePnl MV). Use cost basis for the drawdown
+    // denominator so the breaker scales with deployed capital, not just unrealized swing.
+    const drawdownBasis = config.paperMode
+      ? Math.max(activePnl.invested, config.risk.fallbackCapital)
+      : cap;
+    const maxDrawdown = (deployed.maxDrawdownPct / 100) * drawdownBasis;
     if (drawdownFromHwm > maxDrawdown && !circuitBreakerTripped) {
       circuitBreakerTripped = true;
       log("RISK", `CIRCUIT BREAKER: drawdown $${drawdownFromHwm.toFixed(2)} exceeds max $${maxDrawdown.toFixed(2)} (${deployed.maxDrawdownPct}% of $${cap.toFixed(0)}) — pausing new buys`);

@@ -26,7 +26,9 @@ interface VirtualPortfolio {
 
 const portfolios = new Map<number, VirtualPortfolio>();
 const hydrated = new Set<number>();
-const STARTING_CAPITAL = 250;
+// Bumped 2026-04-28: was $250, raised to $500 for fresh paper-mode reseed.
+// Per-MK virtual portfolios start fresh from this amount on reset-sim-state.
+const STARTING_CAPITAL = 500;
 
 // Hydrate from disk on first access per MK. Before this fix, every restart
 // silently reset cash to STARTING_CAPITAL and dropped open positions —
