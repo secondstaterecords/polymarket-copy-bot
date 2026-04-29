@@ -121,19 +121,11 @@ function useLiveStats() {
     let cancelled = false;
     const fetchStats = async () => {
       try {
-        const r = await fetch("https://coattail.me/api/public", { cache: "no-store" });
+        const r = await fetch("/api/public", { cache: "no-store" });
         if (!r.ok) throw new Error("bad status");
         const d = await r.json();
         if (!cancelled) setStats(d);
-      } catch {
-        // Fallback: try direct IP
-        try {
-          const r = await fetch("http://178.104.84.77:3848/api/public", { cache: "no-store" });
-          if (!r.ok) return;
-          const d = await r.json();
-          if (!cancelled) setStats(d);
-        } catch {}
-      }
+      } catch {}
     };
     fetchStats();
     const id = setInterval(fetchStats, 60 * 1000); // refresh every 60s

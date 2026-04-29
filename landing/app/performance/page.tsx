@@ -6,7 +6,7 @@ import type { SuitVersion } from "./components/SuitCard";
 import CompareTable from "./components/CompareTable";
 import EvolutionTimeline from "./components/EvolutionTimeline";
 
-const API_BASE = "http://178.104.84.77:3848";
+const API_BASE = "";
 
 // Minimum sample size before we publish a WR number as "real"
 const MIN_RESOLVED_FOR_PUBLISH = 20;
