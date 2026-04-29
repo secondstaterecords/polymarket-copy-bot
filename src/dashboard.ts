@@ -569,20 +569,26 @@ const server = http.createServer((req, res) => {
         t.is_real === 1 && t.status === "success" && t.action === "BUY" && (t.timestamp || "") >= weekCutoff
       );
       const realPnl = data.realPnl || {};
-      const paperPnl = data.paperPnl || {};
-      const uniqueResolvedMarkets = new Set(
-        (data.resolutions || []).map((r: any) => r.slug + ":" + r.outcome)
-      );
+      const paperPnl = readJson("paper-pnl.json") || {};
+
+      let resolvedCount = 0;
+      const resDb = getDb();
+      if (resDb) {
+        try {
+          const row = resDb.prepare("SELECT COUNT(*) as cnt FROM resolutions").get() as any;
+          resolvedCount = row?.cnt || 0;
+        } finally { resDb.close(); }
+      }
+
       const publicStats = {
-        // Live numbers, no addresses or trader names
         tradesToday: realSuccessToday.length,
         tradesThisWeek: realSuccessWeek.length,
-        realPnlPct: realPnl.returnPct || 0,
-        realPnlUsd: realPnl.pnl || 0,
-        paperPnlPct: paperPnl.returnPct || 0,
-        resolvedMarkets: uniqueResolvedMarkets.size || 229,
-        topWalletWinRate: 92, // from our data — 0x2a2c hardcoded since it's rolling
-        topWalletReturnPct: 213,
+        realPnlPct: realPnl.returnPct ?? 0,
+        realPnlUsd: realPnl.pnl ?? 0,
+        paperPnlPct: paperPnl.returnPct ?? 0,
+        resolvedMarkets: resolvedCount > 0 ? resolvedCount : null,
+        seedCapital: 500,
+        deployedMk: "MK20",
         generatedAt: new Date().toISOString(),
       };
       res.writeHead(200, {

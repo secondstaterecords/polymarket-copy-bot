@@ -18,7 +18,7 @@ const tickerTrades = [
 
 // Anonymized wallet codes — real addresses stay private
 const leaderboard = [
-  { rank: 1, name: "WALLET-A", wr: 92, ret: "+213%", trades: 36, conf: "HIGH" },
+  { rank: 1, name: "WALLET-A", wr: 87, ret: "+196%", trades: 36, conf: "HIGH" },
   { rank: 2, name: "WALLET-B", wr: 71, ret: "+147%", trades: 14, conf: "MED" },
   { rank: 3, name: "WALLET-C", wr: 57, ret: "+66%", trades: 7, conf: "LOW" },
   { rank: 4, name: "WALLET-D", wr: 44, ret: "+36%", trades: 9, conf: "LOW" },
@@ -109,9 +109,10 @@ interface LiveStats {
   tradesThisWeek: number;
   realPnlPct: number;
   realPnlUsd: number;
+  paperPnlPct: number;
   resolvedMarkets: number;
-  topWalletWinRate: number;
-  topWalletReturnPct: number;
+  seedCapital: number;
+  deployedMk: string;
 }
 
 function useLiveStats() {
@@ -176,16 +177,20 @@ function Hero() {
           </p>
           <div className="flex flex-col gap-3 mono text-[11px] uppercase tracking-[0.18em] text-paper-muted">
             <div className="flex justify-between border-b border-moss/50 pb-2">
-              <span>Top wallet win rate</span>
-              <span className="text-phosphor glow">{stats?.topWalletWinRate ?? 92}%</span>
+              <span>Real wallet uPnL</span>
+              <span className={stats ? (stats.realPnlPct >= 0 ? "text-phosphor glow" : "text-blood") : "text-paper-muted"}>
+                {stats ? `${stats.realPnlPct >= 0 ? "+" : ""}${stats.realPnlPct.toFixed(1)}%` : "—"}
+              </span>
             </div>
             <div className="flex justify-between border-b border-moss/50 pb-2">
-              <span>Avg return on wins</span>
-              <span className="text-gold">+{stats?.topWalletReturnPct ?? 213}%</span>
+              <span>{stats?.deployedMk ?? "MK20"} paper return</span>
+              <span className={stats ? (stats.paperPnlPct >= 0 ? "text-gold" : "text-blood") : "text-paper-muted"}>
+                {stats ? `${stats.paperPnlPct >= 0 ? "+" : ""}${stats.paperPnlPct.toFixed(1)}%` : "—"}
+              </span>
             </div>
             <div className="flex justify-between border-b border-moss/50 pb-2">
               <span>Resolved markets tracked</span>
-              <span>{stats?.resolvedMarkets ?? 229}</span>
+              <span>{(stats?.resolvedMarkets ?? 0) > 0 ? stats!.resolvedMarkets : "—"}</span>
             </div>
             <div className="flex justify-between">
               <span>Trades this week</span>

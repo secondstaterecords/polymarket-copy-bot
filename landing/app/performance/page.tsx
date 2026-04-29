@@ -136,6 +136,10 @@ export default function PerformancePage() {
             to <span className="italic text-phosphor glow">improve.</span>
           </h1>
 
+          <p className="rise mt-6 mono text-[11px] uppercase tracking-[0.2em] text-paper-muted">
+            Each strategy starts from $500 paper capital
+          </p>
+
           {/* Honesty banner when sample too small */}
           {dataState === "insufficient" && (
             <div className="rise mt-8 border border-gold/30 bg-gold/5 px-5 py-3 mono text-[11px] uppercase tracking-[0.2em] text-gold">
@@ -391,7 +395,7 @@ export default function PerformancePage() {
             Ride the <span className="italic text-phosphor glow">sharpest</span> desk.
           </h2>
           <p className="mt-8 text-xl text-paper-muted">
-            MK-18 is live. Subscribe to copy every trade automatically.
+            {deployed ? `MK-${String(deployed.mk).padStart(2, "0")} is live.` : "Latest version is live."} Subscribe to copy every trade automatically.
           </p>
           <div className="mt-12 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <a
