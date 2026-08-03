@@ -16,6 +16,10 @@ seen-trades-v2.json
 trades.json
 trader-analytics.json
 
+# Kalshi alerter (state DB + captured endpoints/HAR)
+kalshi-alerts.db*
+kalshi-alerts/capture.har
+
 # Credentials
 .env
 credentials.json

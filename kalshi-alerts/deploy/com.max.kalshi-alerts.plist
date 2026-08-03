@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Mac launchd unit for the Kalshi alerter. Edit paths + env, then:
+     cp deploy/com.max.kalshi-alerts.plist ~/Library/LaunchAgents/
+     launchctl load ~/Library/LaunchAgents/com.max.kalshi-alerts.plist
+     (never `kill` — launchd respawns; use launchctl unload to stop) -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.max.kalshi-alerts</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>npx</string>
+        <string>tsx</string>
+        <string>kalshi-alerts/index.ts</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/max/polymarket-copy-bot</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>NTFY_TOPIC</key>
+        <string>REPLACE_WITH_YOUR_TOPIC</string>
+        <key>KALSHI_LEADERBOARD_URL</key>
+        <string>REPLACE_WITH_CAPTURED_URL</string>
+        <key>KALSHI_PROFILE_TRADES_URL</key>
+        <string>REPLACE_WITH_CAPTURED_URL</string>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/max/polymarket-copy-bot/data/kalshi-alerts.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/max/polymarket-copy-bot/data/kalshi-alerts.err.log</string>
+</dict>
+</plist>

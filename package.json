@@ -7,6 +7,8 @@
     "bot": "npx tsx src/bot.ts",
     "dashboard": "npx tsx src/dashboard.ts",
     "start": "npx tsx src/bot.ts & npx tsx src/dashboard.ts",
+    "kalshi-alerts": "npx tsx kalshi-alerts/index.ts",
+    "kalshi-discover": "npx tsx kalshi-alerts/discover-endpoints.ts",
     "test": "vitest run"
   },
   "keywords": [],

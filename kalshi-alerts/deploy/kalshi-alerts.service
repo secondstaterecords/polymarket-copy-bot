@@ -1,0 +1,27 @@
+# Hetzner systemd unit for the Kalshi alerter. Edit paths + env, then:
+#   sudo cp deploy/kalshi-alerts.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now kalshi-alerts
+#   journalctl -u kalshi-alerts -f     # tail logs
+
+[Unit]
+Description=Kalshi top-trader iPhone alerts
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/polymarket-copy-bot
+ExecStart=/usr/bin/npx tsx kalshi-alerts/index.ts
+Restart=always
+RestartSec=10
+
+Environment=NTFY_TOPIC=REPLACE_WITH_YOUR_TOPIC
+Environment=KALSHI_LEADERBOARD_URL=REPLACE_WITH_CAPTURED_URL
+Environment=KALSHI_PROFILE_TRADES_URL=REPLACE_WITH_CAPTURED_URL
+# Optional tuning:
+# Environment=KALSHI_LEADERBOARD_WINDOW=week
+# Environment=KALSHI_TRADE_POLL_MS=45000
+
+[Install]
+WantedBy=multi-user.target
